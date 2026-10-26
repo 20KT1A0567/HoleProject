@@ -1,0 +1,14 @@
+[
+    {
+        "relation": [
+            "delegate_permission/common.handle_all_urls"
+        ],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "com.anusha.deliveryapp",
+            "sha256_cert_fingerprints": [
+                "A5:CA:9E:C3:8C:2B:7D:72:31:38:E7:1E:B4:53:72:0F:51:E1:C3:0D:F6:68:75:A8:DC:8A:C7:FE:46:FE:DA:B1"
+            ]
+        }
+    }
+]

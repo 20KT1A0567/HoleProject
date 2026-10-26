@@ -1,0 +1,230 @@
+========================================================================
+ANUSHA BAZAAR — CASHFREE PAYMENT GATEWAY INTEGRATION API SPECIFICATIONS (END-TO-END)
+========================================================================
+
+This document details the complete end-to-end flow for the Cashfree Payments
+integration, including backend controller endpoints, request/response models,
+and frontend JS SDK integration snippets.
+
+------------------------------------------------------------------------
+1. END-TO-END PAYMENT FLOW OVERVIEW
+------------------------------------------------------------------------
+
+The integration utilizes Cashfree's Session-based popup/modal checkout:
+
+  Step 1: Frontend calls backend to initiate order payment.
+  Step 2: Backend registers the order with Cashfree API and returns a `paymentSessionId`.
+  Step 3: Frontend loads Cashfree's v3 Web SDK and opens the checkout modal with `paymentSessionId`.
+  Step 4: Customer completes transaction in the popup overlay (UPI, Card, Netbanking).
+  Step 5: When the checkout window closes, the frontend triggers the backend verification api.
+  Step 6: Backend calls Cashfree's verify API to confirm payment and updates the order status.
+
+------------------------------------------------------------------------
+2. BACKEND API ENDPOINTS (SPRING BOOT CONTROLLER)
+------------------------------------------------------------------------
+
+Base URL Path: `/api/payment`
+Security: Webhook endpoint is PUBLIC. Initiate and Verify require Bearer JWT.
+
+---
+A. INITIATE PAYMENT
+---
+POST /api/payment/initiate
+Authentication: Required (JWT Bearer)
+
+Request Body:
+{
+  "orderId": 1052,
+  "walletAmount": 150.00    // Optional: amount to apply from customer's wallet
+}
+
+Response (200 OK):
+{
+  "cfOrderId": "TXN8C3A9B2E1D7F",      // Cashfree Order ID / reference
+  "paymentSessionId": "session_A73F...",// Cashfree Checkout session key
+  "amountInPaise": 25000,              // Total payable amount in Paise (Rs. 250)
+  "currency": "INR",
+  "receipt": "TXN8C3A9B2E1D7F",        // Internal unique Transaction ID
+  "environment": "sandbox"             // "sandbox" or "production"
+}
+
+---
+B. VERIFY PAYMENT
+---
+POST /api/payment/verify
+Authentication: Required (JWT Bearer)
+
+Request Body:
+{
+  "orderId": 1052,
+  "cfOrderId": "TXN8C3A9B2E1D7F",
+  "receipt": "TXN8C3A9B2E1D7F"
+}
+
+Response (200 OK):
+{
+  "success": true,
+  "message": "Payment verified successfully"
+}
+
+---
+C. WEBHOOK NOTIFICATIONS (SERVER FALLBACK)
+---
+POST /api/payment/webhook
+Authentication: PUBLIC (No token required. Verified via cryptographic signature)
+
+Headers Required:
+* `x-webhook-signature`: Base64 HMAC-SHA256 signature
+* `x-webhook-timestamp`: Epoch timestamp in milliseconds
+
+Payload format (JSON sent by Cashfree):
+{
+  "type": "PAYMENT_SUCCESS_WEBHOOK",
+  "data": {
+    "order": {
+      "order_id": "TXN8C3A9B2E1D7F",
+      "order_amount": 250.00
+    },
+    "payment": {
+      "cf_payment_id": "1829472938",
+      "payment_status": "SUCCESS",
+      "payment_amount": 250.00
+    }
+  }
+}
+
+Response:
+* 200 OK with body "OK"
+
+------------------------------------------------------------------------
+3. FRONTEND INTEGRATION STEPS (React / HTML)
+------------------------------------------------------------------------
+
+---
+Step A: Include the Cashfree v3 JS SDK
+---
+Add the following CDN script tag to your main `index.html` or load it dynamically:
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+
+---
+Step B: Integrate in Checkout Component (Typescript/React Example)
+---
+
+```typescript
+// 1. Declare Cashfree interface on Window object
+declare global {
+  interface Window {
+    Cashfree?: any;
+  }
+}
+
+// 2. Script loader helper
+const ensureCashfreeScript = async () => {
+  const existing = document.querySelector<HTMLScriptElement>('script[src="https://sdk.cashfree.com/js/v3/cashfree.js"]');
+  if (existing) return;
+
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Unable to load Cashfree checkout SDK."));
+    document.body.appendChild(script);
+  });
+};
+
+// 3. Initiate and open checkout modal
+const handleCashfreePayment = async (orderId: number) => {
+  try {
+    // Ensure Cashfree SDK script is loaded
+    await ensureCashfreeScript();
+
+    // Call Backend /api/payment/initiate
+    const payment = await initiateOnlinePayment(orderId);
+
+    return new Promise<void>((resolve, reject) => {
+      if (!window.Cashfree) {
+        return reject(new Error("Cashfree SDK not loaded correctly."));
+      }
+
+      // Initialize Cashfree instance with the environment returned by backend
+      const cashfree = window.Cashfree({
+        mode: payment.environment === "production" ? "production" : "sandbox",
+      });
+
+      // Configure checkout options
+      const checkoutOptions = {
+        paymentSessionId: payment.paymentSessionId,
+        redirectTarget: "_modal", // Opens checkout in a secure popup overlay
+      };
+
+      // Open the modal
+      cashfree.checkout(checkoutOptions)
+        .then(async () => {
+          try {
+            // Once checkout finishes, call Backend /api/payment/verify
+            await verifyOnlinePayment({
+              cfOrderId: payment.cfOrderId,
+              receipt: payment.receipt,
+            });
+            resolve();
+          } catch (verifyError) {
+            reject(verifyError);
+          }
+        })
+        .catch((err: any) => {
+          reject(err || new Error("Payment cancelled or failed."));
+        });
+    });
+  } catch (error) {
+    console.error("Payment integration error:", error);
+    throw error;
+  }
+};
+```
+
+------------------------------------------------------------------------
+4. BACKEND INTEGRATION IMPLEMENTATION DETAILS
+------------------------------------------------------------------------
+
+---
+A. Properties required (application.properties):
+---
+cashfree.app-id=${CASHFREE_APP_ID}
+cashfree.secret-key=${CASHFREE_SECRET_KEY}
+cashfree.webhook-secret=${CASHFREE_WEBHOOK_SECRET}
+cashfree.api-url=${CASHFREE_API_URL:https://sandbox.cashfree.com/pg}
+cashfree.api-version=2023-08-01
+
+---
+B. Create Order Cashfree REST Request (Sent by CashfreeService):
+---
+POST {apiUrl}/orders
+Headers:
+  Content-Type: application/json
+  x-api-version: 2023-08-01
+  x-client-id: {appId}
+  x-client-secret: {secretKey}
+
+Payload:
+{
+  "order_id": "TXN8C3A9B2E1D7F",
+  "order_amount": "250.00",
+  "order_currency": "INR",
+  "customer_details": {
+    "customer_id": "cust_1052",
+    "customer_phone": "9948598350",
+    "customer_email": "customer@example.com"
+  },
+  "order_meta": {
+    "return_url": "https://app.anushatechnologies.com/payment/status?order_id=TXN8C3A9B2E1D7F"
+  }
+}
+
+---
+C. Webhook Signature Verification logic:
+---
+The backend matches base64 encoded HMAC-SHA256 signature calculated on:
+`String payload = timestamp + rawBody;`
+with the `x-webhook-signature` header using your `cashfree.webhook-secret`.
+========================================================================

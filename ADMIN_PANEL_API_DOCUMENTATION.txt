@@ -1,0 +1,3336 @@
+================================================================================
+          ANUSHA TECHNOLOGIES - ADMIN PANEL API DOCUMENTATION
+              Complete API Reference for Frontend Team
+                      Base URL: http://localhost:8080
+================================================================================
+
+IMPORTANT NOTES:
+- All admin APIs require JWT Bearer Token in Authorization header
+  Header: Authorization: Bearer <accessToken>
+- Admin roles: ROLE_ADMIN or ROLE_SUPER_ADMIN
+- Super Admin has access to everything
+- Regular Admin access is permission-based (per module)
+- Token expiry is checked on every request
+- All dates/times are in ISO 8601 format (e.g., "2026-04-24T10:30:00")
+
+================================================================================
+                         TABLE OF CONTENTS
+================================================================================
+
+ 1. ADMIN AUTHENTICATION
+ 2. SUPER ADMIN - ADMIN USER MANAGEMENT
+ 3. DASHBOARD & ANALYTICS
+ 4. ORDER MANAGEMENT
+ 5. CUSTOMER MANAGEMENT
+ 6. DELIVERY PERSON MANAGEMENT
+ 7. DOCUMENT MANAGEMENT
+ 8. STORE MANAGEMENT
+ 9. PRODUCT MANAGEMENT
+10. CATEGORY MANAGEMENT
+11. SUBCATEGORY MANAGEMENT
+12. COUPON MANAGEMENT
+13. BANNER MANAGEMENT
+14. FREE ITEM OFFERS MANAGEMENT
+15. CHECKOUT SETTINGS
+16. MARQUEE ANNOUNCEMENTS
+17. NOTIFICATIONS (Push / WhatsApp)
+18. WHATSAPP CAMPAIGNS
+19. DELIVERY ADMIN - FARE RULES
+20. DELIVERY ADMIN - NEARBY RIDERS
+21. AUDIT LOGS
+22. USER ACTIVITY LOGS
+23. GLOBAL SEARCH
+24. SAVED FILTERS
+25. ADVANCED FEATURES
+26. COMMAND CENTER & BULK OPERATIONS
+27. LIVE DASHBOARD & SSE STREAM
+
+================================================================================
+  1. ADMIN AUTHENTICATION
+     Base URL: /api/auth/adminpanel
+     Auth Required: NO (these are login endpoints)
+================================================================================
+
+------------------------------------------------------------------------
+1.1  LOGIN WITH EMAIL & PASSWORD
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/auth/adminpanel/login
+
+Request Body:
+{
+  "email": "admin@anushatechnologies.com",
+  "password": "Admin@123"
+}
+
+Response (Success - No 2FA Code):
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+  "refreshToken": "dGhpcyBpcyBhIHJlZnJlc2g...",
+  "expiresIn": 86400,
+  "id": 1,
+  "email": "admin@anushatechnologies.com",
+  "role": "ROLE_ADMIN",
+  "name": "Admin User",
+  "mustChangePassword": false,
+  "adminCodeRequired": false,
+  "adminCodeChallengeToken": null,
+  "adminAccessExpiresAt": "2026-04-30T10:00:00",
+  "adminAccessRemainingSeconds": 518400,
+  "adminAccessExpired": false,
+  "permissions": ["orders", "customers", "products", "delivery"]
+}
+
+Response (Success - 2FA Code Required):
+{
+  "id": 1,
+  "email": "admin@anushatechnologies.com",
+  "role": "ROLE_ADMIN",
+  "name": "Admin User",
+  "mustChangePassword": false,
+  "adminCodeRequired": true,
+  "adminCodeChallengeToken": "challenge_token_abc123xyz",
+  "permissions": ["orders", "customers"]
+}
+
+NOTE: If adminCodeRequired = true, you MUST call endpoint 1.3 to verify the
+      6-digit access code before getting the actual JWT tokens.
+
+Response (Error):
+{
+  "message": "Bad credentials"
+}
+
+------------------------------------------------------------------------
+1.2  LOGIN WITH FIREBASE TOKEN
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/auth/adminpanel/firebase-login
+
+Request Body:
+{
+  "idToken": "firebase_id_token_from_google_sign_in"
+}
+
+Response: Same as 1.1
+
+------------------------------------------------------------------------
+1.3  VERIFY 6-DIGIT ADMIN ACCESS CODE (2FA)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/auth/adminpanel/verify-admin-code
+
+Request Body:
+{
+  "challengeToken": "challenge_token_abc123xyz",
+  "code": "123456"
+}
+
+Response (Success): Full login response with token (same as 1.1 success)
+Response (Error):
+{
+  "message": "Invalid or expired challenge token"
+}
+
+------------------------------------------------------------------------
+1.4  INITIATE PASSWORD RESET (Send Reset Email)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/auth/adminpanel/prepare-password-reset
+
+Request Body:
+{
+  "email": "admin@anushatechnologies.com"
+}
+
+Response:
+{
+  "message": "Password reset email sent successfully.",
+  "email": "admin@anushatechnologies.com"
+}
+
+------------------------------------------------------------------------
+1.5  SYNC PASSWORD FROM FIREBASE (Set new password after reset)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/auth/adminpanel/sync-firebase-password
+
+Request Body:
+{
+  "idToken": "firebase_id_token",
+  "newPassword": "NewAdmin@456"
+}
+
+Response: Full login response with tokens (same as 1.1 success)
+
+------------------------------------------------------------------------
+1.6  CHANGE PASSWORD (When logged in)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/auth/adminpanel/change-password
+
+Request Body:
+{
+  "email": "admin@anushatechnologies.com",
+  "currentPassword": "OldPass@123",
+  "newPassword": "NewPass@456"
+}
+
+Response:
+{
+  "message": "Password changed successfully"
+}
+
+------------------------------------------------------------------------
+1.7  REFRESH ACCESS TOKEN
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/auth/adminpanel/refresh
+
+Request Body:
+{
+  "refreshToken": "dGhpcyBpcyBhIHJlZnJlc2g..."
+}
+
+Response:
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+  "refreshToken": "new_refresh_token_here",
+  "expiresInSeconds": 86400
+}
+
+------------------------------------------------------------------------
+1.8  LOGOUT
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/auth/adminpanel/logout
+
+Request Body:
+{
+  "refreshToken": "dGhpcyBpcyBhIHJlZnJlc2g..."
+}
+
+Response:
+{
+  "message": "Logged out successfully"
+}
+
+
+================================================================================
+  2. SUPER ADMIN - ADMIN USER MANAGEMENT
+     Base URL: /api/super-admin/admin-users
+     Auth Required: YES (ROLE_SUPER_ADMIN ONLY)
+================================================================================
+
+------------------------------------------------------------------------
+2.1  LIST ALL ADMIN ACCOUNTS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/super-admin/admin-users
+
+Response:
+[
+  {
+    "id": 1,
+    "email": "admin1@anushatechnologies.com",
+    "name": "Admin One",
+    "role": "ROLE_ADMIN",
+    "enabled": true,
+    "mustChangePassword": false,
+    "hasAdminAccessCode": true,
+    "createdById": 100,
+    "createdAt": "2026-01-01T10:00:00",
+    "lastLoginAt": "2026-04-24T09:00:00",
+    "adminAccessExpiresAt": "2026-05-01T10:00:00",
+    "adminAccessRemainingSeconds": 604800,
+    "adminAccessExpired": false,
+    "permissions": ["orders", "customers", "delivery", "products"]
+  }
+]
+
+------------------------------------------------------------------------
+2.2  CREATE NEW ADMIN ACCOUNT
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/super-admin/admin-users
+
+Request Body:
+{
+  "email": "newadmin@anushatechnologies.com",
+  "name": "New Admin"
+}
+
+Response: AdminUserResponse object (same as item in 2.1 array)
+
+NOTE: A setup email with temporary password is sent automatically.
+      mustChangePassword will be true for new accounts.
+
+------------------------------------------------------------------------
+2.3  TOGGLE ADMIN ACCOUNT (Enable / Disable)
+------------------------------------------------------------------------
+Method : PATCH
+URL    : /api/super-admin/admin-users/{id}/status
+
+URL Example: /api/super-admin/admin-users/5/status
+No request body required.
+
+Response: Updated AdminUserResponse object
+
+------------------------------------------------------------------------
+2.4  RESET ADMIN PASSWORD (Send setup email)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/super-admin/admin-users/{id}/reset-password
+
+URL Example: /api/super-admin/admin-users/5/reset-password
+No request body required.
+
+Response:
+{
+  "message": "Password reset email sent successfully."
+}
+
+------------------------------------------------------------------------
+2.5  SET / UPDATE 6-DIGIT ACCESS CODE
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/super-admin/admin-users/{id}/access-code
+
+URL Example: /api/super-admin/admin-users/5/access-code
+
+Request Body:
+{
+  "code": "123456"
+}
+
+Response: Updated AdminUserResponse object
+
+------------------------------------------------------------------------
+2.6  SET ADMIN PERMISSIONS (Which modules can be accessed)
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/super-admin/admin-users/{id}/permissions
+
+URL Example: /api/super-admin/admin-users/5/permissions
+
+Request Body:
+{
+  "permissions": ["orders", "customers", "delivery", "products", "coupons", "banners"]
+}
+
+Available permission keys (send as array of strings):
+  "orders"          - Order management
+  "customers"       - Customer management
+  "delivery"        - Delivery person management
+  "products"        - Product management
+  "stores"          - Store management
+  "categories"      - Category management
+  "coupons"         - Coupon management
+  "banners"         - Banner management
+  "analytics"       - Dashboard and analytics
+  "notifications"   - Push notification management
+  "audit"           - Audit logs
+
+Response: Updated AdminUserResponse object
+
+------------------------------------------------------------------------
+2.7  SET ADMIN ACCESS DURATION (How long admin can access panel)
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/super-admin/admin-users/{id}/access-time
+
+URL Example: /api/super-admin/admin-users/5/access-time
+
+Request Body:
+{
+  "days": 7,
+  "hours": 0,
+  "minutes": 0,
+  "seconds": 0
+}
+
+Response: Updated AdminUserResponse object
+
+
+================================================================================
+  3. DASHBOARD & ANALYTICS
+     Base URL: /api/admin
+     Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+3.1  DASHBOARD SUMMARY
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/dashboard/summary
+
+Response:
+{
+  "totalOrders": 1250,
+  "pendingOrders": 45,
+  "totalRevenue": 125000.00,
+  "todayRevenue": 8500.00,
+  "totalCustomers": 520,
+  "activeRiders": 12,
+  "pendingRiderApprovals": 3
+}
+
+------------------------------------------------------------------------
+3.2  ACTIVE USERS COUNT
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/dashboard/active-users
+
+Response:
+{
+  "activeUsers": 85
+}
+
+------------------------------------------------------------------------
+3.3  RECENT ORDERS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/dashboard/recent-orders
+
+Response: Array of Order objects (latest 10-20 orders)
+
+------------------------------------------------------------------------
+3.4  ORDER ANALYTICS (by period)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/dashboard/analytics?period=today
+
+Query Params:
+  period  (optional, default: "today")
+          Values: today | week | month | year
+
+Response:
+{
+  "totalOrders": 45,
+  "pendingOrders": 5,
+  "confirmedOrders": 10,
+  "deliveredOrders": 28,
+  "cancelledOrders": 2
+}
+
+------------------------------------------------------------------------
+3.5  PRODUCT PERFORMANCE ANALYTICS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/dashboard/product-performance?period=week
+
+Query Params:
+  period  (optional, default: "today")
+          Values: today | week | month | year
+
+Response: Product performance metrics
+
+------------------------------------------------------------------------
+3.6  LEGACY DASHBOARD STATISTICS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/dashboard
+
+Response:
+{
+  "success": true,
+  "statistics": {
+    "totalOrders": 1250,
+    "totalRevenue": 125000.00,
+    "totalCustomers": 520,
+    "totalDeliveryPersons": 25,
+    "pendingApprovals": 3
+  }
+}
+
+------------------------------------------------------------------------
+3.7  INCOME SUMMARY
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/income/summary
+
+Response:
+{
+  "success": true,
+  "summary": {
+    "today": 8500.00,
+    "week": 52000.00,
+    "month": 180000.00,
+    "total": 1250000.00
+  }
+}
+
+------------------------------------------------------------------------
+3.8  ALL PAYMENT TRANSACTIONS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/income/transactions
+
+Response:
+{
+  "success": true,
+  "transactions": [
+    {
+      "id": 1,
+      "orderId": 101,
+      "orderNumber": "ORD-2026-001",
+      "amount": 450.00,
+      "paymentMethod": "ONLINE",
+      "paymentStatus": "PAID",
+      "razorpayPaymentId": "pay_abc123",
+      "createdAt": "2026-04-24T10:30:00"
+    }
+  ]
+}
+
+------------------------------------------------------------------------
+3.9  LIVE DASHBOARD SNAPSHOT
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/dashboard/live?activeWindowMinutes=15
+
+Query Params:
+  activeWindowMinutes  (optional, default: 15)
+
+Response:
+{
+  "liveOrders": 8,
+  "activeRiders": 5,
+  "revenueToday": 12500.00,
+  "newCustomersToday": 12,
+  "pendingOrders": 3,
+  "averageDeliveryTime": 35
+}
+
+------------------------------------------------------------------------
+3.10  BAR GRAPH DATA (Orders vs Revenue)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/dashboard/bar?period=7d
+
+Query Params:
+  period  (optional, default: "7d")
+          Values: 7d | 30d | 90d
+
+Response:
+[
+  { "date": "2026-04-18", "orders": 45, "revenue": 18000.00 },
+  { "date": "2026-04-19", "orders": 52, "revenue": 21500.00 },
+  ...
+]
+
+------------------------------------------------------------------------
+3.11  SSE LIVE STREAM (Server-Sent Events)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/dashboard/stream?activeWindowMinutes=15
+
+Query Params:
+  activeWindowMinutes  (optional, default: 15)
+
+NOTE: This is an SSE endpoint. Use EventSource in browser:
+  const es = new EventSource('/api/admin/dashboard/stream',
+    { headers: { Authorization: 'Bearer ...' } });
+  es.onmessage = (e) => console.log(JSON.parse(e.data));
+
+Each SSE event contains the same payload as /dashboard/live
+
+
+================================================================================
+  4. ORDER MANAGEMENT
+     Base URL: /api/admin/orders
+     Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+4.1  GET ALL ORDERS (Summary List)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/orders
+
+Response:
+[
+  {
+    "id": 101,
+    "orderNumber": "ORD-2026-001",
+    "customerName": "Ravi Kumar",
+    "customerPhone": "+919876543210",
+    "subtotal": 380.00,
+    "deliveryCharge": 30.00,
+    "platformFee": 5.00,
+    "handlingCharge": 0.00,
+    "smallCartFee": 0.00,
+    "discount": 20.00,
+    "grandTotal": 395.00,
+    "paymentMethod": "ONLINE",
+    "orderStatus": "PENDING",
+    "paymentStatus": "PAID",
+    "placedAt": "2026-04-24T10:30:00",
+    "riderAssigned": false,
+    "deliveryPersonName": null,
+    "storeNames": ["Fresh Mart", "Veggies Hub"],
+    "storeIds": [1, 2],
+    "storeCount": 2
+  }
+]
+
+Order Status Values:
+  PENDING | CONFIRMED | PROCESSING | READY | OUT_FOR_DELIVERY | DELIVERED | CANCELLED
+
+Payment Status Values:
+  PENDING | PAID | FAILED | REFUNDED | PARTIALLY_REFUNDED
+
+------------------------------------------------------------------------
+4.2  GET ORDER DETAILS (Full Detail)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/orders/{orderId}
+
+URL Example: /api/admin/orders/101
+
+Response:
+{
+  "id": 101,
+  "orderNumber": "ORD-2026-001",
+  "customerName": "Ravi Kumar",
+  "customerPhone": "+919876543210",
+  "customerEmail": "ravi@gmail.com",
+  "address": {
+    "id": 5,
+    "addressType": "HOME",
+    "flatNumber": "101",
+    "addressLine1": "MG Road",
+    "addressLine2": "Near Park",
+    "landmark": "Opposite Bus Stand",
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "postalCode": "500001"
+  },
+  "subtotal": 380.00,
+  "deliveryCharge": 30.00,
+  "platformFee": 5.00,
+  "handlingCharge": 0.00,
+  "smallCartFee": 0.00,
+  "discount": 20.00,
+  "walletApplied": 0.00,
+  "paidAmount": 395.00,
+  "grandTotal": 395.00,
+  "orderStatus": "CONFIRMED",
+  "paymentStatus": "PAID",
+  "paymentMethod": "ONLINE",
+  "refundStatus": null,
+  "refundId": null,
+  "refundAmount": null,
+  "refundReason": null,
+  "refundedAt": null,
+  "placedAt": "2026-04-24T10:30:00",
+  "deliveryPersonName": "Suresh M",
+  "deliveryPersonPhone": "+919988776655",
+  "deliveryPersonVehicle": "BIKE",
+  "deliveryPersonRating": 4.5,
+  "estimatedDeliveryTime": "2026-04-24T11:15:00",
+  "storeStatus": "CONFIRMED",
+  "items": [
+    {
+      "variantId": 201,
+      "productName": "Fresh Milk",
+      "variantName": "1 Litre",
+      "sku": "MILK-1L-001",
+      "quantity": 2,
+      "unitPrice": 60.00,
+      "totalPrice": 120.00,
+      "imageUrl": "https://s3.amazonaws.com/..."
+    }
+  ],
+  "storeGroups": [
+    {
+      "storeId": 1,
+      "storeName": "Fresh Mart",
+      "storePhone": "+914012345678",
+      "status": "CONFIRMED",
+      "subtotal": 240.00,
+      "items": [ ... ]
+    }
+  ]
+}
+
+------------------------------------------------------------------------
+4.3  ACCEPT ORDER
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/orders/{orderId}/accept
+
+URL Example: /api/admin/orders/101/accept
+No request body required.
+
+Response:
+{
+  "message": "Order accepted successfully",
+  "orderId": 101
+}
+
+------------------------------------------------------------------------
+4.4  REJECT ORDER
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/orders/{orderId}/reject
+
+URL Example: /api/admin/orders/101/reject
+
+Request Body:
+{
+  "reason": "Items out of stock at store"
+}
+
+Response:
+{
+  "message": "Order rejected successfully",
+  "orderId": 101
+}
+
+------------------------------------------------------------------------
+4.5  PROCESS REFUND FOR ORDER
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/orders/{orderId}/refund
+
+URL Example: /api/admin/orders/101/refund
+
+Request Body (optional):
+{
+  "reason": "Customer requested cancellation",
+  "amount": 395.00
+}
+
+NOTE: If amount is omitted, full order amount is refunded.
+
+Response: Refund processing result object
+
+------------------------------------------------------------------------
+4.6  GET REFUND STATUS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/orders/{orderId}/refund-status
+
+URL Example: /api/admin/orders/101/refund-status
+
+Response:
+{
+  "refundStatus": "REFUNDED",
+  "refundId": "rfnd_abc123",
+  "refundAmount": 395.00,
+  "refundReason": "Customer requested cancellation",
+  "refundedAt": "2026-04-24T11:00:00"
+}
+
+------------------------------------------------------------------------
+4.7  ASSIGN ORDER TO DELIVERY PERSON (Manual Assignment)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/orders/{orderId}/assign
+
+URL Example: /api/admin/orders/101/assign
+
+Request Body:
+{
+  "deliveryPersonId": 15
+}
+
+Response:
+{
+  "success": true,
+  "message": "Order assigned successfully",
+  "orderId": 5,
+  "orderNumber": "ORD-2026-001"
+}
+
+------------------------------------------------------------------------
+4.8  BROADCAST ORDER TO RIDERS (First to accept wins)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/orders/{orderId}/broadcast
+
+URL Example: /api/admin/orders/101/broadcast
+
+Request Body:
+{
+  "vehicleType": "BIKE"
+}
+
+Vehicle Types: BIKE | SCOOTY | EV | AUTO | HEAVY
+
+Response:
+{
+  "success": true,
+  "broadcastId": 88,
+  "vehicleType": "BIKE",
+  "expiresAt": "2026-04-24T10:45:00",
+  "message": "Order broadcast sent to all online BIKE riders"
+}
+
+------------------------------------------------------------------------
+4.9  NOTIFY STORE VIA WHATSAPP
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/orders/{orderId}/notify-store
+
+URL Example: /api/admin/orders/101/notify-store
+No request body required.
+
+Response:
+{
+  "success": true,
+  "message": "Store notified via WhatsApp for order ORD-2026-001"
+}
+
+------------------------------------------------------------------------
+4.10  SEND PICKUP OTP TO STORE
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/orders/{orderRef}/send-store-otp
+
+URL Example: /api/admin/orders/101/send-store-otp
+  OR: /api/admin/orders/ORD-2026-001/send-store-otp
+
+No request body required.
+
+Response:
+{
+  "success": true,
+  "message": "Pickup OTP sent to store via WhatsApp"
+}
+
+------------------------------------------------------------------------
+4.11  GET ORDERS PENDING ASSIGNMENT
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/orders/pending-assignment
+
+Response:
+{
+  "success": true,
+  "orders": [ ... list of DeliveryOrder objects ... ]
+}
+
+------------------------------------------------------------------------
+4.12  GET ALL DELIVERY ORDERS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/delivery-orders
+
+Response:
+{
+  "success": true,
+  "orders": [ ... list of DeliveryOrder objects ... ]
+}
+
+------------------------------------------------------------------------
+4.13  GET DELIVERY ORDERS BY STATUS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/delivery-orders/status/{status}
+
+URL Example: /api/admin/delivery-orders/status/ASSIGNED
+
+Status Values: PENDING | ASSIGNED | PICKED_UP | DELIVERED | CANCELLED
+
+Response:
+{
+  "success": true,
+  "orders": [ ... ]
+}
+
+------------------------------------------------------------------------
+4.14  GENERATE DELIVERY OTP (For picked up orders)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/orders/{orderId}/generate-delivery-otp
+
+URL Example: /api/admin/orders/101/generate-delivery-otp
+No request body required.
+
+Response:
+{
+  "success": true,
+  "message": "Delivery OTP generated successfully",
+  "deliveryOtp": "4821",
+  "order": { ... DeliveryOrder object ... }
+}
+
+------------------------------------------------------------------------
+4.15  TEST WHATSAPP MESSAGE
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/orders/test-whatsapp?phone=918019672244
+
+Query Params:
+  phone  (required) - Phone number with country code (no + symbol)
+
+No request body required.
+
+Response:
+{
+  "success": true,
+  "config": {
+    "phoneNumberId": "12345678901234",
+    "tokenConfigured": true
+  },
+  "message": "Test WhatsApp sent to 918019672244"
+}
+
+
+================================================================================
+  5. CUSTOMER MANAGEMENT
+     Base URL: /api/admin/customers
+     Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+5.1  GET ALL CUSTOMERS (Paginated & Searchable)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/customers
+
+Query Params (all optional):
+  search  - Filter by name or phone (partial match, e.g. "ravi")
+  active  - Filter by status: true (active) or false (inactive)
+  page    - Page number, 0-based (default: 0)
+  size    - Items per page (default: 20)
+
+URL Examples:
+  /api/admin/customers
+  /api/admin/customers?search=ravi&page=0&size=10
+  /api/admin/customers?active=false&page=0&size=20
+
+Response:
+{
+  "customers": [
+    {
+      "id": 50,
+      "name": "Ravi Kumar",
+      "phoneNumber": "+919876543210",
+      "email": "ravi@gmail.com",
+      "isActive": true,
+      "createdAt": "2026-01-15T08:00:00",
+      "updatedAt": "2026-04-20T15:30:00",
+      "walletBalance": 150.00
+    }
+  ],
+  "totalElements": 520,
+  "totalPages": 26,
+  "currentPage": 0
+}
+
+------------------------------------------------------------------------
+5.2  GET CUSTOMER BY ID
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/customers/{id}
+
+URL Example: /api/admin/customers/50
+
+Response: Single customer object (same as item in 5.1 array)
+
+------------------------------------------------------------------------
+5.3  ACTIVATE / DEACTIVATE CUSTOMER
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/admin/customers/{id}/status
+
+URL Example: /api/admin/customers/50/status
+
+Request Body:
+{
+  "active": false
+}
+
+Response: Updated customer object
+
+------------------------------------------------------------------------
+5.4  DELETE CUSTOMER (Permanent)
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/admin/customers/{id}
+
+URL Example: /api/admin/customers/50
+
+WARNING: This permanently deletes the customer and all associated data.
+
+Response:
+{
+  "message": "Customer deleted successfully"
+}
+
+
+================================================================================
+  6. DELIVERY PERSON MANAGEMENT
+     Base URL: /api/admin  AND  /api/delivery-admin
+     Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+6.1  GET ALL DELIVERY PERSONS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/delivery-persons
+   OR  : /api/delivery-admin/delivery-persons
+
+Response:
+{
+  "success": true,
+  "deliveryPersons": [
+    {
+      "id": 15,
+      "firstName": "Suresh",
+      "lastName": "M",
+      "phoneNumber": "+919988776655",
+      "email": "suresh@gmail.com",
+      "vehicleType": "BIKE",
+      "vehicleNumber": "TS09AB1234",
+      "isOnline": true,
+      "isApproved": true,
+      "isActive": true,
+      "averageRating": 4.5,
+      "totalDeliveries": 250,
+      "profilePhotoUrl": "https://s3.amazonaws.com/...",
+      "profilePhotoApproved": true,
+      "latitude": 17.385,
+      "longitude": 78.486,
+      "lastLocationUpdate": "2026-04-24T10:25:00"
+    }
+  ]
+}
+
+------------------------------------------------------------------------
+6.2  GET DELIVERY PERSON BY ID
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/delivery-persons/{id}
+   OR  : /api/delivery-admin/delivery-persons/{id}
+
+URL Example: /api/admin/delivery-persons/15
+
+Response (delivery-admin version includes more detail):
+{
+  "success": true,
+  "deliveryPerson": { ... full delivery person object ... },
+  "documents": [ ... list of documents ... ],
+  "onboardingStatus": {
+    "profileComplete": true,
+    "documentsSubmitted": true,
+    "documentsApproved": false,
+    "photoApproved": true,
+    "readyForDelivery": false
+  }
+}
+
+------------------------------------------------------------------------
+6.3  GET PENDING APPROVAL DELIVERY PERSONS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/delivery-persons/pending-approval
+   OR  : /api/delivery-admin/delivery-persons/pending-approval
+
+Response:
+{
+  "success": true,
+  "deliveryPersons": [ ... or "pendingDeliveryPersons" key in delivery-admin ... ]
+}
+
+------------------------------------------------------------------------
+6.4  GET AVAILABLE DELIVERY PERSONS (Online + Approved)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/delivery-persons/available
+   OR  : /api/delivery-admin/delivery-persons/available
+
+Response:
+{
+  "success": true,
+  "deliveryPersons": [ ... or "availableDeliveryPersons" key in delivery-admin ... ]
+}
+
+------------------------------------------------------------------------
+6.5  ACTIVATE / DEACTIVATE DELIVERY PERSON
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/admin/delivery-persons/{id}/status
+   OR  : /api/delivery-admin/delivery-persons/{id}/status
+
+URL Example: /api/admin/delivery-persons/15/status
+
+Request Body:
+{
+  "isActive": true
+}
+
+Response:
+{
+  "success": true,
+  "message": "Status updated",
+  "deliveryPerson": { ... }
+}
+
+------------------------------------------------------------------------
+6.6  APPROVE DELIVERY PERSON
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/delivery-persons/{id}/approve
+   OR  : /api/delivery-admin/delivery-persons/{id}/approve
+
+URL Example: /api/admin/delivery-persons/15/approve
+
+Request Body:
+{
+  "adminId": 1
+}
+
+Response:
+{
+  "success": true,
+  "message": "Approved",
+  "deliveryPerson": { ... }
+}
+
+------------------------------------------------------------------------
+6.7  REJECT DELIVERY PERSON
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/delivery-persons/{id}/reject
+   OR  : /api/delivery-admin/delivery-persons/{id}/reject
+
+URL Example: /api/admin/delivery-persons/15/reject
+
+Request Body:
+{
+  "adminId": 1,
+  "remarks": "Documents are incomplete. Please re-submit Aadhaar."
+}
+
+Response:
+{
+  "success": true,
+  "message": "Rejected",
+  "deliveryPerson": { ... }
+}
+
+------------------------------------------------------------------------
+6.8  APPROVE PROFILE PHOTO
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/delivery-persons/{id}/approve-photo
+   OR  : /api/delivery-admin/delivery-persons/{id}/approve-photo
+
+Request Body:
+{
+  "adminId": 1
+}
+
+Response:
+{
+  "success": true,
+  "message": "Photo approved",
+  "deliveryPerson": { ... }
+}
+
+------------------------------------------------------------------------
+6.9  REJECT PROFILE PHOTO
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/delivery-persons/{id}/reject-photo
+   OR  : /api/delivery-admin/delivery-persons/{id}/reject-photo
+
+Request Body:
+{
+  "adminId": 1,
+  "remarks": "Photo is blurry. Please upload a clear photo."
+}
+
+Response:
+{
+  "success": true,
+  "message": "Photo rejected",
+  "deliveryPerson": { ... }
+}
+
+------------------------------------------------------------------------
+6.10  REQUEST PROFILE PHOTO RE-UPLOAD
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/delivery-persons/{id}/request-photo-reupload
+   OR  : /api/delivery-admin/delivery-persons/{id}/request-photo-reupload
+
+Request Body:
+{
+  "adminId": 1,
+  "remarks": "Upload a photo with plain background"
+}
+
+Response:
+{
+  "success": true,
+  "message": "Re-upload requested",
+  "deliveryPerson": { ... }
+}
+
+------------------------------------------------------------------------
+6.11  UPDATE DELIVERY PERSON DETAILS (Admin Override)
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/delivery-admin/delivery-persons/{id}/details
+
+URL Example: /api/delivery-admin/delivery-persons/15/details
+
+Request Body (any combination of fields):
+{
+  "firstName": "Suresh",
+  "lastName": "Kumar",
+  "email": "suresh.kumar@gmail.com",
+  "vehicleNumber": "TS09CD5678",
+  "bankAccountNumber": "1234567890",
+  "bankIfscCode": "HDFC0001234",
+  "bankAccountHolderName": "Suresh Kumar"
+}
+
+Response:
+{
+  "success": true,
+  "message": "Details updated successfully",
+  "deliveryPerson": { ... }
+}
+
+
+================================================================================
+  7. DOCUMENT MANAGEMENT
+     Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+7.1  GET DOCUMENTS PENDING REVIEW
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/documents/pending-review
+   OR  : /api/delivery-admin/documents/pending-review
+
+Response:
+{
+  "success": true,
+  "documents": [
+    {
+      "id": 30,
+      "deliveryPersonId": 15,
+      "documentType": "AADHAAR",
+      "documentUrl": "https://s3.amazonaws.com/...",
+      "status": "PENDING",
+      "remarks": null,
+      "uploadedAt": "2026-04-23T14:00:00"
+    }
+  ]
+}
+
+Document Type Values:
+  AADHAAR | PAN | DRIVING_LICENSE | VEHICLE_RC | VEHICLE_INSURANCE | SELFIE
+
+------------------------------------------------------------------------
+7.2  GET DELIVERY PERSON DOCUMENTS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/delivery-persons/{id}/documents
+   OR  : /api/delivery-admin/delivery-persons/{id}/documents
+
+URL Example: /api/admin/delivery-persons/15/documents
+
+Response:
+{
+  "success": true,
+  "documents": [ ... list of document objects ... ]
+}
+
+------------------------------------------------------------------------
+7.3  APPROVE DOCUMENT
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/documents/{documentId}/approve
+   OR  : /api/delivery-admin/documents/{documentId}/approve
+
+URL Example: /api/admin/documents/30/approve
+
+Request Body:
+{
+  "adminId": 1
+}
+
+NOTE: adminId is optional in /api/admin version but required in
+      /api/delivery-admin version.
+
+Response:
+{
+  "success": true,
+  "message": "Document approved successfully",
+  "document": { ... }
+}
+
+------------------------------------------------------------------------
+7.4  REJECT DOCUMENT
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/documents/{documentId}/reject
+   OR  : /api/delivery-admin/documents/{documentId}/reject
+
+URL Example: /api/admin/documents/30/reject
+
+Request Body:
+{
+  "adminId": 1,
+  "remarks": "Document is expired. Please upload a valid one."
+}
+
+Response:
+{
+  "success": true,
+  "message": "Document rejected successfully",
+  "document": { ... }
+}
+
+------------------------------------------------------------------------
+7.5  REQUEST DOCUMENT RE-UPLOAD
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/documents/{documentId}/request-reupload
+   OR  : /api/delivery-admin/documents/{documentId}/request-reupload
+
+URL Example: /api/admin/documents/30/request-reupload
+
+Request Body:
+{
+  "adminId": 1,
+  "remarks": "Image is not clear. Please upload a high resolution scan."
+}
+
+Response:
+{
+  "success": true,
+  "message": "Re-upload requested successfully",
+  "document": { ... }
+}
+
+
+================================================================================
+  8. STORE MANAGEMENT
+     Base URL: /api/stores  AND  /api/admin/stores
+     Auth Required: NO for GET, YES (ADMIN) for POST/PUT/DELETE
+================================================================================
+
+------------------------------------------------------------------------
+8.1  GET ALL STORES (with optional name filter)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/stores?name=mart&page=0&size=10
+
+Query Params (all optional):
+  name   - Filter by store name
+  page   - Page number (default: 0)
+  size   - Items per page (default: 10)
+  sort   - Sort field (default: displayOrder)
+
+Response: Paginated list of StoreResponse objects
+
+------------------------------------------------------------------------
+8.2  GET STORE BY ID
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/stores/{id}
+
+URL Example: /api/stores/1
+
+Response:
+{
+  "id": 1,
+  "name": "Fresh Mart",
+  "description": "Fresh vegetables and fruits",
+  "address": "MG Road, Hyderabad",
+  "phoneNumber": "+914012345678",
+  "email": "freshmart@gmail.com",
+  "imageUrl": "https://s3.amazonaws.com/...",
+  "isActive": true,
+  "displayOrder": 1,
+  "latitude": 17.385,
+  "longitude": 78.486,
+  "openingTime": "08:00",
+  "closingTime": "22:00"
+}
+
+------------------------------------------------------------------------
+8.3  SEARCH STORE SUGGESTIONS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/stores/suggest?q=fresh
+
+Response: Array of StoreResponse objects
+
+------------------------------------------------------------------------
+8.4  CREATE STORE (Multipart Form)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/stores
+Content-Type: multipart/form-data
+
+Form Fields:
+  store  (JSON part) - StoreRequest object as JSON string
+  image  (file)      - Store image file (required)
+
+StoreRequest JSON:
+{
+  "name": "Fresh Mart",
+  "description": "Fresh vegetables and fruits",
+  "address": "MG Road, Hyderabad",
+  "phoneNumber": "+914012345678",
+  "email": "freshmart@gmail.com",
+  "isActive": true,
+  "displayOrder": 1
+}
+
+Response: Created StoreResponse object (HTTP 201)
+
+------------------------------------------------------------------------
+8.5  UPDATE STORE (Multipart Form)
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/stores/{id}
+Content-Type: multipart/form-data
+
+Form Fields:
+  store  (JSON part) - StoreRequest JSON
+  image  (file)      - New image (optional)
+
+Response: Updated StoreResponse object
+
+------------------------------------------------------------------------
+8.6  DELETE STORE
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/stores/{id}
+
+Response: HTTP 204 No Content
+
+------------------------------------------------------------------------
+8.7  STORE DASHBOARD (Analytics for all stores)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/stores/dashboard
+
+Response:
+[
+  {
+    "storeId": 1,
+    "storeName": "Fresh Mart",
+    "totalOrders": 450,
+    "deliveredOrders": 420,
+    "totalIncome": 85000.00
+  }
+]
+
+------------------------------------------------------------------------
+8.8  GET ORDERS FOR A SPECIFIC STORE
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/stores/{storeId}/orders
+
+URL Example: /api/admin/stores/1/orders
+
+Response: List of order maps for that store
+
+------------------------------------------------------------------------
+8.9  GET INCOME FOR A SPECIFIC STORE
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/stores/{storeId}/income
+
+URL Example: /api/admin/stores/1/income
+
+Response:
+{
+  "storeId": 1,
+  "storeName": "Fresh Mart",
+  "today": 3500.00,
+  "week": 22000.00,
+  "month": 85000.00,
+  "total": 620000.00
+}
+
+------------------------------------------------------------------------
+8.10  SET STORE GPS LOCATION
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/delivery-admin/stores/{id}/location
+
+URL Example: /api/delivery-admin/stores/1/location
+
+Request Body:
+{
+  "latitude": 17.385044,
+  "longitude": 78.486671
+}
+
+Response:
+{
+  "success": true,
+  "message": "Store location updated",
+  "storeId": 1,
+  "latitude": 17.385044,
+  "longitude": 78.486671
+}
+
+
+================================================================================
+  9. PRODUCT MANAGEMENT
+     Base URL: /api/products
+     Auth Required: NO for GET, YES (ADMIN) for POST/PUT/DELETE
+================================================================================
+
+------------------------------------------------------------------------
+9.1  GET ALL PRODUCTS (with optional store filter)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/products
+   OR  : /api/products?storeId=1
+
+Response: Array of ProductResponse objects
+
+------------------------------------------------------------------------
+9.2  GET PRODUCT BY ID
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/products/{id}
+
+Response: Single ProductResponse object
+
+------------------------------------------------------------------------
+9.3  SEARCH PRODUCTS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/products/search?keyword=milk
+
+Response: Array of matching ProductResponse objects
+
+------------------------------------------------------------------------
+9.4  PRODUCT SEARCH SUGGESTIONS (Instant)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/products/suggestions?q=mil&limit=10
+
+Query Params:
+  q      (required) - Search term (min 1 char)
+  limit  (optional, default: 10, max: 20)
+
+Response: Array of ProductResponse objects (relevance-ranked)
+
+------------------------------------------------------------------------
+9.5  PAGINATED PRODUCT SEARCH
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/products/search/paginated?q=milk&page=0&size=20
+
+Response: Paginated ProductResponse objects
+
+------------------------------------------------------------------------
+9.6  FILTER PRODUCTS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/products/filter
+
+Query Params (all optional):
+  categoryId    - Filter by category
+  subCategoryId - Filter by subcategory
+  storeId       - Filter by store
+  minPrice      - Minimum price
+  maxPrice      - Maximum price
+  trending      - true | false
+  keyword       - Search keyword
+
+URL Example: /api/products/filter?categoryId=1&minPrice=10&maxPrice=200
+
+Response: Array of ProductResponse objects
+
+------------------------------------------------------------------------
+9.7  GET TRENDING PRODUCTS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/products/trending
+
+Response: Array of ProductResponse objects
+
+------------------------------------------------------------------------
+9.8  GET BESTSELLER PRODUCTS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/products/bestseller
+
+Response: Array of ProductResponse objects
+
+------------------------------------------------------------------------
+9.9  CREATE PRODUCT (Multipart Form)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/products
+Content-Type: multipart/form-data
+
+Form Fields:
+  product  (JSON string) - ProductRequest JSON
+  image    (file)        - Product image (required)
+  video    (file)        - Product video (optional)
+
+ProductRequest JSON:
+{
+  "name": "Fresh Milk",
+  "description": "Pure cow milk",
+  "storeId": 1,
+  "categoryId": 2,
+  "subCategoryId": 5,
+  "trending": false,
+  "bestSeller": true,
+  "displayOrder": 1,
+  "variants": [
+    {
+      "name": "500ml",
+      "mrp": 35.00,
+      "sellingPrice": 30.00,
+      "stock": 100,
+      "sku": "MILK-500ML"
+    },
+    {
+      "name": "1 Litre",
+      "mrp": 65.00,
+      "sellingPrice": 60.00,
+      "stock": 80,
+      "sku": "MILK-1L"
+    }
+  ]
+}
+
+Response: Created ProductResponse object (HTTP 201)
+
+------------------------------------------------------------------------
+9.10  UPDATE PRODUCT (Multipart Form)
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/products/{id}
+Content-Type: multipart/form-data
+
+Form Fields:
+  product  (JSON string) - Updated ProductRequest JSON
+  image    (file)        - New image (optional)
+  video    (file)        - New video (optional)
+
+Response: Updated ProductResponse object
+
+------------------------------------------------------------------------
+9.11  DELETE PRODUCT
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/products/{id}
+
+Response: HTTP 204 No Content
+
+------------------------------------------------------------------------
+9.12  UPDATE PRODUCT LIFECYCLE STATUS (Advanced)
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/admin/products/{id}/lifecycle
+
+URL Example: /api/admin/products/55/lifecycle
+
+Request Body:
+{
+  "lifecycleStatus": "ACTIVE",
+  "reason": "Product approved after quality check"
+}
+
+Lifecycle Status Values: DRAFT | ACTIVE | INACTIVE | DISCONTINUED
+
+Response: Updated Product object
+
+------------------------------------------------------------------------
+9.13  BULK PRODUCT ACTIONS
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/products/bulk-action
+   OR  : /api/admin/products/bulk (alias)
+
+Request Body:
+{
+  "productIds": [10, 11, 12, 13],
+  "action": "ACTIVATE"
+}
+
+Bulk Action Values:
+  ACTIVATE            - Enable all selected products
+  DEACTIVATE          - Disable all selected products
+  DELETE              - Delete all selected products
+  MOVE_CATEGORY       - Move to different category (requires categoryId)
+  MOVE_SUBCATEGORY    - Move to subcategory (requires subCategoryId)
+  MOVE_STORE          - Move to different store (requires storeId)
+  SET_DISPLAY_ORDER   - Set exact display order (requires displayOrder)
+  ADJUST_PRICE        - Adjust price by percentage (requires percentage, positive=increase, negative=discount)
+  SET_STOCK           - Set stock quantity (requires stock)
+
+Request Body Examples:
+
+Move to category:
+{
+  "productIds": [10, 11],
+  "action": "MOVE_CATEGORY",
+  "categoryId": 3
+}
+
+Adjust price (10% increase):
+{
+  "productIds": [10, 11, 12],
+  "action": "ADJUST_PRICE",
+  "percentage": 10.0
+}
+
+Set stock:
+{
+  "productIds": [10, 11],
+  "action": "SET_STOCK",
+  "stock": 50
+}
+
+Response:
+{
+  "success": true,
+  "affectedCount": 4,
+  "action": "ACTIVATE",
+  "message": "Bulk action ACTIVATE applied to 4 products"
+}
+
+------------------------------------------------------------------------
+9.14  GET ALL PRODUCT RATINGS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/ratings
+
+Response:
+{
+  "success": true,
+  "ratings": [
+    {
+      "id": 1,
+      "productId": 55,
+      "customerId": 50,
+      "customerName": "Ravi Kumar",
+      "rating": 4,
+      "review": "Good product",
+      "createdAt": "2026-04-20T10:00:00"
+    }
+  ]
+}
+
+------------------------------------------------------------------------
+9.15  DELETE PRODUCT RATING
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/admin/ratings/{id}
+
+URL Example: /api/admin/ratings/1
+
+Response:
+{
+  "success": true,
+  "message": "Rating deleted successfully"
+}
+
+
+================================================================================
+  10. CATEGORY MANAGEMENT
+      Base URL: /api/categories
+      Auth Required: NO for GET, YES (ADMIN) for POST/PUT/DELETE
+================================================================================
+
+------------------------------------------------------------------------
+10.1  GET ALL CATEGORIES
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/categories
+
+Response:
+[
+  {
+    "id": 1,
+    "name": "Dairy & Eggs",
+    "description": "Fresh dairy products",
+    "imageUrl": "https://s3.amazonaws.com/...",
+    "displayOrder": 1,
+    "isActive": true,
+    "discountPercentage": 0.0,
+    "subCategoryCount": 3
+  }
+]
+
+------------------------------------------------------------------------
+10.2  GET CATEGORY BY ID
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/categories/{id}
+
+------------------------------------------------------------------------
+10.3  SEARCH CATEGORIES
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/categories/search?keyword=dairy
+
+------------------------------------------------------------------------
+10.4  FILTER CATEGORIES BY MINIMUM DISCOUNT
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/categories/filter/discount?minDiscount=10
+
+------------------------------------------------------------------------
+10.5  CREATE CATEGORY (Multipart Form)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/categories
+Content-Type: multipart/form-data
+
+Form Fields:
+  category  (JSON string) - CategoryRequest JSON
+  image     (file)        - Category image (optional)
+
+CategoryRequest JSON:
+{
+  "name": "Dairy & Eggs",
+  "description": "Fresh dairy products and eggs",
+  "displayOrder": 1,
+  "isActive": true,
+  "discountPercentage": 0.0
+}
+
+Response: Created CategoryResponse (HTTP 201)
+
+------------------------------------------------------------------------
+10.6  UPDATE CATEGORY (Multipart Form)
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/categories/{id}
+Content-Type: multipart/form-data
+
+Form Fields:
+  category  (JSON string) - Updated CategoryRequest JSON
+  image     (file)        - New image (optional)
+
+------------------------------------------------------------------------
+10.7  SOFT DELETE CATEGORY
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/categories/{id}
+
+Response: HTTP 204 No Content
+
+------------------------------------------------------------------------
+10.8  HARD DELETE CATEGORY (Permanent)
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/categories/{id}/hard
+
+Response: HTTP 204 No Content
+
+
+================================================================================
+  11. SUBCATEGORY MANAGEMENT
+      Base URL: /api/subcategories
+      Auth Required: NO for GET, YES (ADMIN) for POST/PUT/DELETE
+================================================================================
+
+------------------------------------------------------------------------
+11.1  GET ALL SUBCATEGORIES
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/subcategories
+
+------------------------------------------------------------------------
+11.2  GET SUBCATEGORIES BY CATEGORY ID
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/subcategories/{categoryId}
+
+URL Example: /api/subcategories/1
+
+------------------------------------------------------------------------
+11.3  GET SUBCATEGORY BY ID
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/subcategories/detail/{id}
+
+URL Example: /api/subcategories/detail/5
+
+------------------------------------------------------------------------
+11.4  CREATE SUBCATEGORY (JSON only)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/subcategories
+Content-Type: application/json
+
+Request Body:
+{
+  "name": "Milk",
+  "description": "Fresh cow and buffalo milk",
+  "categoryId": 1,
+  "displayOrder": 1,
+  "isActive": true
+}
+
+------------------------------------------------------------------------
+11.5  CREATE SUBCATEGORY (With Image/Video - Multipart)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/subcategories
+Content-Type: multipart/form-data
+
+Form Fields:
+  subCategory  (JSON string) - SubCategoryRequest JSON
+  image        (file)        - Image (optional)
+  video        (file)        - Video (optional)
+
+------------------------------------------------------------------------
+11.6  UPDATE SUBCATEGORY (JSON only)
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/subcategories/{id}
+
+Request Body: SubCategoryRequest JSON
+
+------------------------------------------------------------------------
+11.7  UPDATE SUBCATEGORY (With Files - Multipart)
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/subcategories/{id}
+Content-Type: multipart/form-data
+
+Form Fields:
+  subCategory  (JSON string) - Updated SubCategoryRequest JSON
+  image        (file)        - New image (optional)
+  video        (file)        - New video (optional)
+
+------------------------------------------------------------------------
+11.8  SOFT DELETE SUBCATEGORY
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/subcategories/{id}
+
+------------------------------------------------------------------------
+11.9  HARD DELETE SUBCATEGORY (Permanent)
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/subcategories/{id}/hard
+
+
+================================================================================
+  12. COUPON MANAGEMENT
+      Base URL: /api/admin/coupons
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+12.1  GET ALL COUPONS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/coupons
+
+Response:
+[
+  {
+    "id": 1,
+    "code": "SAVE20",
+    "description": "Save 20% on first order",
+    "discountType": "PERCENTAGE",
+    "discountValue": 20.00,
+    "minOrderAmount": 200.00,
+    "maxDiscountAmount": 100.00,
+    "usageLimit": 1000,
+    "usedCount": 250,
+    "startDate": "2026-04-01T00:00:00",
+    "expiryDate": "2026-04-30T23:59:59",
+    "isActive": true,
+    "applicableForNewUsersOnly": false
+  }
+]
+
+Discount Type Values: PERCENTAGE | FLAT
+
+------------------------------------------------------------------------
+12.2  GET COUPON BY ID
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/coupons/{id}
+
+------------------------------------------------------------------------
+12.3  CREATE COUPON
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/coupons
+
+Request Body:
+{
+  "code": "WELCOME50",
+  "description": "Rs 50 off for new users",
+  "discountType": "FLAT",
+  "discountValue": 50.00,
+  "minOrderAmount": 150.00,
+  "maxDiscountAmount": 50.00,
+  "usageLimit": 500,
+  "startDate": "2026-04-25T00:00:00",
+  "expiryDate": "2026-05-31T23:59:59",
+  "isActive": true,
+  "applicableForNewUsersOnly": true
+}
+
+Response: Created Coupon object
+
+------------------------------------------------------------------------
+12.4  UPDATE COUPON
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/admin/coupons/{id}
+
+Request Body: Full Coupon object (same fields as create)
+
+Response: Updated Coupon object
+
+------------------------------------------------------------------------
+12.5  DELETE COUPON
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/admin/coupons/{id}
+
+Response:
+{
+  "success": true,
+  "message": "Coupon deleted successfully"
+}
+
+
+================================================================================
+  13. BANNER MANAGEMENT
+      Base URL: /api/admin/banners
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+13.1  GET ALL BANNERS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/banners
+
+Response:
+{
+  "success": true,
+  "banners": [
+    {
+      "id": 1,
+      "name": "Summer Sale",
+      "imageUrl": "https://s3.amazonaws.com/...",
+      "videoUrl": null,
+      "targetUrl": "/offers",
+      "actionType": "NAVIGATE",
+      "actionValue": "/categories/1",
+      "displayOrder": 1,
+      "targetApp": "CUSTOMER",
+      "isActive": true
+    }
+  ]
+}
+
+Target App Values: CUSTOMER | WEBSITE | BOTH
+Action Type Values: NAVIGATE | URL | PRODUCT | CATEGORY | STORE
+
+------------------------------------------------------------------------
+13.2  CREATE BANNER (Multipart Form)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/banners
+Content-Type: multipart/form-data
+
+Form Fields:
+  name          (text, required) - Banner name
+  targetUrl     (text, optional) - Target URL
+  actionType    (text, optional) - Action type
+  actionValue   (text, optional) - Action value (e.g., category ID)
+  displayOrder  (text, optional, default: 0)
+  targetApp     (text, optional, default: "CUSTOMER")
+  image         (file, optional) - Banner image
+  video         (file, optional) - Banner video
+
+Response:
+{
+  "success": true,
+  "message": "Banner created successfully",
+  "banner": { ... banner object ... }
+}
+
+------------------------------------------------------------------------
+13.3  UPDATE BANNER (Multipart Form)
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/admin/banners/{id}
+Content-Type: multipart/form-data
+
+Same form fields as CREATE. New image/video replaces existing.
+
+------------------------------------------------------------------------
+13.4  DELETE BANNER
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/admin/banners/{id}
+
+Response:
+{
+  "success": true,
+  "message": "Banner deleted successfully"
+}
+
+------------------------------------------------------------------------
+13.5  TOGGLE BANNER STATUS (Active / Inactive)
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/admin/banners/{id}/status
+
+Request Body:
+{
+  "isActive": false
+}
+
+Response:
+{
+  "success": true,
+  "message": "Banner status updated successfully",
+  "banner": { ... }
+}
+
+
+================================================================================
+  14. FREE ITEM OFFERS MANAGEMENT
+      Base URL: /api/admin/free-item-offers
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+14.1  GET ALL FREE ITEM OFFERS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/free-item-offers
+
+Response:
+[
+  {
+    "id": 1,
+    "name": "Buy 2 Get 1 Free Milk",
+    "description": "Buy 2 litres of milk, get 500ml free",
+    "qualifyingVariantId": 201,
+    "qualifyingQuantity": 2,
+    "qualifyingByProduct": false,
+    "freeVariantId": 202,
+    "freeQuantity": 1,
+    "startDate": "2026-04-25T00:00:00",
+    "expiryDate": "2026-05-10T23:59:59",
+    "active": true
+  }
+]
+
+------------------------------------------------------------------------
+14.2  GET OFFER BY ID
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/free-item-offers/{id}
+
+------------------------------------------------------------------------
+14.3  CREATE FREE ITEM OFFER
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/free-item-offers
+
+Request Body:
+{
+  "name": "Buy 2 Get 1 Free Milk",
+  "description": "Buy 2 litres of milk, get 500ml free",
+  "qualifyingVariantId": 201,
+  "qualifyingQuantity": 2,
+  "qualifyingByProduct": false,
+  "freeVariantId": 202,
+  "freeQuantity": 1,
+  "startDate": "2026-04-25T00:00:00",
+  "expiryDate": "2026-05-10T23:59:59",
+  "active": true
+}
+
+NOTE:
+  qualifyingVariantId  - The variant customer must buy
+  qualifyingQuantity   - How many they must buy
+  qualifyingByProduct  - If true, any variant of the product qualifies
+  freeVariantId        - The variant given free
+  freeQuantity         - How many free items given
+
+Response: Created FreeItemOfferResponse object
+
+------------------------------------------------------------------------
+14.4  UPDATE FREE ITEM OFFER
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/admin/free-item-offers/{id}
+
+Request Body: Same as CREATE
+
+------------------------------------------------------------------------
+14.5  DELETE FREE ITEM OFFER
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/admin/free-item-offers/{id}
+
+Response:
+{
+  "success": true,
+  "message": "Free item offer deleted successfully"
+}
+
+
+================================================================================
+  15. CHECKOUT SETTINGS
+      Auth Required: GET = NO, PUT = YES (ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+15.1  GET CHECKOUT SETTINGS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/checkout-settings
+   OR  : /api/admin/checkout-settings
+
+Response:
+{
+  "success": true,
+  "settings": {
+    "deliveryCharge": 30.00,
+    "platformFee": 5.00,
+    "handlingCharge": 0.00,
+    "smallCartFee": 10.00,
+    "smallCartThreshold": 200.00,
+    "onlinePaymentEnabled": true,
+    "cashOnDeliveryEnabled": true
+  }
+}
+
+------------------------------------------------------------------------
+15.2  UPDATE CHECKOUT SETTINGS
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/admin/checkout-settings
+
+Request Body (send only fields you want to update):
+{
+  "deliveryCharge": 40.00,
+  "platformFee": 8.00,
+  "handlingCharge": 5.00,
+  "smallCartFee": 15.00,
+  "smallCartThreshold": 250.00,
+  "onlinePaymentEnabled": true,
+  "cashOnDeliveryEnabled": true
+}
+
+Response:
+{
+  "success": true,
+  "message": "Checkout settings updated successfully",
+  "settings": { ... updated settings ... }
+}
+
+
+================================================================================
+  16. MARQUEE ANNOUNCEMENTS
+      Auth Required: GET public = NO, Admin endpoints = YES (ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+16.1  GET ALL MARQUEE (Admin - includes inactive)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/marquee
+
+Response:
+[
+  {
+    "id": 1,
+    "text": "Free delivery on orders above Rs 299!",
+    "active": true,
+    "displayOrder": 1
+  }
+]
+
+------------------------------------------------------------------------
+16.2  CREATE MARQUEE ANNOUNCEMENT
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/marquee
+
+Request Body:
+{
+  "text": "Flash sale today! 20% off on all dairy products",
+  "active": true,
+  "displayOrder": 1
+}
+
+------------------------------------------------------------------------
+16.3  UPDATE MARQUEE ANNOUNCEMENT
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/admin/marquee/{id}
+
+Request Body:
+{
+  "text": "Updated announcement text",
+  "active": true,
+  "displayOrder": 2
+}
+
+------------------------------------------------------------------------
+16.4  DELETE MARQUEE ANNOUNCEMENT
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/admin/marquee/{id}
+
+Response:
+{
+  "deleted": true
+}
+
+
+================================================================================
+  17. NOTIFICATIONS (Push Notifications)
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+17.1  SEND NOTIFICATION TO SPECIFIC CUSTOMER
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/notifications/send
+
+Request Body:
+{
+  "phoneNumber": "+919876543210",
+  "title": "Your order has been delivered!",
+  "message": "Order ORD-2026-001 has been successfully delivered.",
+  "type": "order",
+  "screen": "OrderDetails",
+  "orderId": "101",
+  "orderNumber": "ORD-2026-001"
+}
+
+Fields:
+  phoneNumber  (required) - Customer phone with country code
+  title        (required) - Notification title
+  message      (required) - Notification body text
+  type         (optional, default: "system") - Notification type
+  screen       (optional) - Screen to open in app
+  orderId      (optional) - Related order ID
+  orderNumber  (optional) - Related order number
+  targetId     (optional) - Any target ID for deep linking
+
+Response:
+{
+  "success": true,
+  "message": "Notification saved and sent to 2 devices",
+  "deviceCount": 2
+}
+
+------------------------------------------------------------------------
+17.2  SEND NOTIFICATION TO ALL CUSTOMERS (Broadcast)
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/notifications/send-to-customers
+
+Request Body:
+{
+  "title": "Weekend Special Offer!",
+  "message": "Get 15% off on all orders this weekend. Use code: WEEKEND15",
+  "type": "broadcast",
+  "screen": "Offers"
+}
+
+Response:
+{
+  "success": true,
+  "message": "Broadcast saved for 520 customers and sent to 650 devices",
+  "recipients": 520,
+  "deviceCount": 650
+}
+
+------------------------------------------------------------------------
+17.3  SEND NOTIFICATION TO ALL DELIVERY PERSONS
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/notifications/send-to-delivery
+
+Request Body:
+{
+  "title": "New Area Added",
+  "message": "Madhapur area has been added for deliveries. Check your app."
+}
+
+Response:
+{
+  "success": true,
+  "message": "Broadcast saved for 25 delivery partners and sent to 30 devices",
+  "recipients": 25,
+  "deviceCount": 30
+}
+
+------------------------------------------------------------------------
+17.4  SEND NOTIFICATION BY RAW FCM TOKEN
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/notifications/send-by-token
+
+Request Body:
+{
+  "token": "fcm_device_token_here",
+  "title": "Test Notification",
+  "message": "This is a test push notification."
+}
+
+Response:
+{
+  "success": true,
+  "message": "Notification sent successfully to token"
+}
+
+
+================================================================================
+  18. WHATSAPP CAMPAIGNS
+      Base URL: /api/admin/notifications/whatsapp-campaigns
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+18.1  START WHATSAPP CAMPAIGN
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/notifications/whatsapp-campaigns
+Content-Type: multipart/form-data
+
+Form Fields:
+  file           (file)   - CSV/Excel file with phone numbers
+  templateName   (text)   - WhatsApp template name
+  headerImageUrl (text, optional) - URL of header image
+  activeOnly     (text, optional, default: "true")
+
+Response (HTTP 202 Accepted):
+{
+  "campaignId": "camp_20260424_abc123",
+  "status": "STARTED",
+  "totalRecipients": 250,
+  "message": "Campaign started successfully"
+}
+
+------------------------------------------------------------------------
+18.2  GET CAMPAIGN STATUS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/notifications/whatsapp-campaigns/{campaignId}
+
+URL Example: /api/admin/notifications/whatsapp-campaigns/camp_20260424_abc123
+
+Response:
+{
+  "campaignId": "camp_20260424_abc123",
+  "status": "COMPLETED",
+  "totalRecipients": 250,
+  "sent": 248,
+  "failed": 2,
+  "startedAt": "2026-04-24T10:00:00",
+  "completedAt": "2026-04-24T10:05:00"
+}
+
+
+================================================================================
+  19. DELIVERY ADMIN - FARE RULES
+      Base URL: /api/delivery-admin/fare-rules
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+19.1  GET ALL FARE RULES
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/delivery-admin/fare-rules
+
+Response:
+{
+  "success": true,
+  "fareRules": [
+    {
+      "id": 1,
+      "vehicleType": "BIKE",
+      "baseFare": 30.00,
+      "baseKm": 3.0,
+      "perKmRate": 8.00,
+      "rainSurcharge": 15.00,
+      "loadingCharge": 0.00,
+      "unloadingCharge": 0.00,
+      "rainActive": false
+    },
+    {
+      "id": 2,
+      "vehicleType": "AUTO",
+      "baseFare": 60.00,
+      "baseKm": 3.0,
+      "perKmRate": 15.00,
+      "rainSurcharge": 0.00,
+      "loadingCharge": 0.00,
+      "unloadingCharge": 0.00,
+      "rainActive": false
+    }
+  ]
+}
+
+Vehicle Types: BIKE | SCOOTY | EV | AUTO | HEAVY
+
+------------------------------------------------------------------------
+19.2  UPDATE FARE RULE
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/delivery-admin/fare-rules/{id}
+
+URL Example: /api/delivery-admin/fare-rules/1
+
+Request Body (send fields to update):
+{
+  "baseFare": 35.00,
+  "baseKm": 3.0,
+  "perKmRate": 10.00,
+  "rainSurcharge": 20.00,
+  "loadingCharge": 0.00,
+  "unloadingCharge": 0.00
+}
+
+NOTE: Do NOT include rainActive here. Use the rain-toggle endpoint for that.
+
+Response:
+{
+  "success": true,
+  "message": "Fare rule updated successfully",
+  "fareRule": { ... updated fare rule ... }
+}
+
+------------------------------------------------------------------------
+19.3  TOGGLE RAIN SURCHARGE
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/delivery-admin/fare-rules/{vehicleType}/rain-toggle
+
+URL Example: /api/delivery-admin/fare-rules/BIKE/rain-toggle
+
+NOTE: For BIKE/SCOOTY/EV — all three are toggled together (same rain group).
+      For AUTO and HEAVY — toggled individually.
+
+Request Body:
+{
+  "rainActive": true
+}
+
+Response: Rain toggle result with updated fare rules
+
+------------------------------------------------------------------------
+19.4  CALCULATE FARE PREVIEW
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/delivery-admin/fare-rules/calculate
+
+Request Body:
+{
+  "vehicleType": "BIKE",
+  "distanceKm": 7.5
+}
+
+Response:
+{
+  "success": true,
+  "fareBreakdown": {
+    "vehicleType": "BIKE",
+    "distanceKm": 7.5,
+    "baseFare": 30.00,
+    "distanceFare": 36.00,
+    "rainSurcharge": 0.00,
+    "totalFare": 66.00
+  }
+}
+
+
+================================================================================
+  20. DELIVERY ADMIN - NEARBY RIDERS
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+20.1  GET NEARBY ONLINE RIDERS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/delivery-admin/nearby-riders?storeId=1&radiusKm=5
+
+Query Params:
+  storeId   (required) - Store ID to search around
+  radiusKm  (optional, default: 5.0) - Radius in kilometers
+
+Response:
+{
+  "success": true,
+  "storeId": 1,
+  "radiusKm": 5.0,
+  "count": 3,
+  "riders": [
+    {
+      "id": 15,
+      "firstName": "Suresh",
+      "lastName": "M",
+      "phoneNumber": "+919988776655",
+      "vehicleType": "BIKE",
+      "vehicleNumber": "TS09AB1234",
+      "latitude": 17.392,
+      "longitude": 78.480,
+      "distanceKm": 1.2,
+      "averageRating": 4.5
+    }
+  ]
+}
+
+NOTE: Store must have GPS coordinates set (use endpoint 8.10 first).
+
+------------------------------------------------------------------------
+20.2  ADMIN OVERRIDE - ACCEPT ORDER ON BEHALF OF STORE
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/delivery-admin/orders/{orderNumber}/store-accept
+
+URL Example: /api/delivery-admin/orders/ORD-2026-001/store-accept
+
+Request Body (optional):
+{
+  "remarks": "Manual Admin Acceptance - store not responding"
+}
+
+Response:
+{
+  "success": true,
+  "message": "Order ORD-2026-001 accepted via Admin Override"
+}
+
+------------------------------------------------------------------------
+20.3  GET DELIVERY ORDERS (With Status Filter)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/delivery-admin/orders
+   OR  : /api/delivery-admin/orders?status=ASSIGNED
+
+Query Params:
+  status  (optional) - Filter by status
+
+Status Values: PENDING | ASSIGNED | PICKED_UP | DELIVERED | CANCELLED
+
+Response:
+{
+  "success": true,
+  "orders": [ ... list of DeliveryOrder objects ... ]
+}
+
+
+================================================================================
+  21. AUDIT LOGS
+      Base URL: /api/admin/audit-logs
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+21.1  SEARCH AUDIT LOGS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/audit-logs
+
+Query Params (all optional):
+  role   - Filter by role (default: "ADMIN") Values: ADMIN | SUPER_ADMIN
+  q      - Search keyword in action/details
+  from   - Start date-time (ISO format: 2026-04-22T00:00:00)
+  to     - End date-time (ISO format: 2026-04-22T23:59:59)
+  page   - Page number (default: 0)
+  size   - Page size (default: 50, max: 200)
+
+URL Examples:
+  /api/admin/audit-logs
+  /api/admin/audit-logs?role=ADMIN&q=bulk&page=0&size=50
+  /api/admin/audit-logs?from=2026-04-22T00:00:00&to=2026-04-22T23:59:59
+
+Response:
+{
+  "logs": [
+    {
+      "id": 1,
+      "userId": 1,
+      "userRole": "ROLE_ADMIN",
+      "action": "BULK_PRODUCT_ACTIVATE",
+      "details": "Activated 5 products: [10, 11, 12, 13, 14]",
+      "ipAddress": "192.168.1.1",
+      "timestamp": "2026-04-24T10:30:00"
+    }
+  ],
+  "totalElements": 250,
+  "totalPages": 5,
+  "currentPage": 0
+}
+
+
+================================================================================
+  22. USER ACTIVITY LOGS
+      Base URL: /api/user-logs
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+22.1  GET ALL USER LOGS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/user-logs
+
+------------------------------------------------------------------------
+22.2  GET LOGS BY USER ID
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/user-logs/user/{userId}
+
+URL Example: /api/user-logs/user/1
+
+------------------------------------------------------------------------
+22.3  GET LOGS BY ROLE
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/user-logs/role/{role}
+
+URL Example: /api/user-logs/role/ADMIN
+
+------------------------------------------------------------------------
+22.4  GET LOGS BY ACTION
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/user-logs/action/{action}
+
+URL Example: /api/user-logs/action/LOGIN
+
+------------------------------------------------------------------------
+22.5  CREATE MANUAL LOG ENTRY
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/user-logs
+
+Request Body:
+{
+  "userId": 1,
+  "userRole": "ROLE_ADMIN",
+  "action": "MANUAL_ENTRY",
+  "details": "Admin manually processed refund for order 101",
+  "ipAddress": "192.168.1.1"
+}
+
+
+================================================================================
+  23. GLOBAL ADMIN SEARCH
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+23.1  GLOBAL SEARCH (Products + Orders + Customers)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/search?q=milk&limit=10
+
+Query Params:
+  q      (required) - Search query
+  limit  (optional, default: 10) - Max results per category
+
+URL Example: /api/admin/search?q=ravi&limit=5
+
+Response:
+{
+  "q": "ravi",
+  "products": [
+    {
+      "id": 55,
+      "name": "Ravi's Fresh Milk",
+      "imageUrl": "...",
+      "price": 60.00,
+      "storeName": "Fresh Mart"
+    }
+  ],
+  "orders": [
+    {
+      "id": 101,
+      "orderNumber": "ORD-2026-001",
+      "customerName": "Ravi Kumar",
+      "grandTotal": 395.00,
+      "orderStatus": "DELIVERED",
+      "placedAt": "2026-04-24T10:30:00"
+    }
+  ],
+  "customers": [
+    {
+      "id": 50,
+      "name": "Ravi Kumar",
+      "phoneNumber": "+919876543210",
+      "email": "ravi@gmail.com",
+      "isActive": true
+    }
+  ]
+}
+
+
+================================================================================
+  24. SAVED FILTERS
+      Base URL: /api/admin/saved-filters
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+24.1  LIST SAVED FILTERS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/saved-filters
+   OR  : /api/admin/saved-filters?resource=orders
+
+Query Params:
+  resource  (optional) - Filter by resource type
+
+------------------------------------------------------------------------
+24.2  CREATE SAVED FILTER
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/saved-filters
+
+Request Body:
+{
+  "name": "Today's Pending Orders",
+  "resource": "orders",
+  "filters": {
+    "status": "PENDING",
+    "dateFrom": "today"
+  }
+}
+
+------------------------------------------------------------------------
+24.3  UPDATE SAVED FILTER
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/admin/saved-filters/{id}
+
+Request Body: Same as CREATE
+
+------------------------------------------------------------------------
+24.4  DELETE SAVED FILTER
+------------------------------------------------------------------------
+Method : DELETE
+URL    : /api/admin/saved-filters/{id}
+
+Response:
+{
+  "success": true
+}
+
+
+================================================================================
+  25. ADVANCED FEATURES
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+25.1  APPROVAL REQUESTS - LIST
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/approvals
+
+------------------------------------------------------------------------
+25.2  APPROVAL REQUESTS - CREATE
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/approvals
+
+Request Body:
+{
+  "type": "PRODUCT_LAUNCH",
+  "resourceId": 55,
+  "resourceType": "PRODUCT",
+  "description": "New product requires approval before going live"
+}
+
+------------------------------------------------------------------------
+25.3  APPROVAL REQUESTS - DECIDE
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/admin/approvals/{id}
+
+Request Body:
+{
+  "decision": "APPROVE",
+  "remarks": "Product looks good, approved"
+}
+
+Decision Values: APPROVE | REJECT
+
+------------------------------------------------------------------------
+25.4  DELIVERY ZONES - LIST
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/delivery-zones
+
+------------------------------------------------------------------------
+25.5  DELIVERY ZONES - CREATE
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/delivery-zones
+
+Request Body:
+{
+  "name": "Madhapur Zone",
+  "description": "Covers Madhapur, Kondapur, Gachibowli",
+  "coordinates": "17.45,78.38;17.45,78.42;17.42,78.42;17.42,78.38",
+  "deliveryCharge": 35.00,
+  "active": true
+}
+
+------------------------------------------------------------------------
+25.6  DELIVERY ZONES - UPDATE
+------------------------------------------------------------------------
+Method : PUT
+URL    : /api/admin/delivery-zones/{id}
+
+Request Body: Same as CREATE
+
+------------------------------------------------------------------------
+25.7  CAMPAIGN TARGETING DATA
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/campaign-targeting
+
+Response: Customer segmentation data for campaigns
+
+------------------------------------------------------------------------
+25.8  CAMPAIGN DRAFTS - LIST
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/campaign-drafts
+
+------------------------------------------------------------------------
+25.9  CAMPAIGN DRAFTS - CREATE
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/campaign-drafts
+
+Request Body:
+{
+  "name": "April Special Offer",
+  "type": "WHATSAPP",
+  "templateName": "special_offer_v1",
+  "targetSegment": "ALL_CUSTOMERS",
+  "scheduledAt": "2026-04-25T10:00:00",
+  "status": "DRAFT"
+}
+
+------------------------------------------------------------------------
+25.10  FRAUD SCORING
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/fraud-scoring
+
+Response: Fraud risk scores for orders/customers
+
+------------------------------------------------------------------------
+25.11  SMART INSIGHTS
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/smart-insights?period=month
+
+Query Params:
+  period  (optional, default: "month")
+          Values: today | week | month | year
+
+Response: AI-generated business insights
+
+------------------------------------------------------------------------
+25.12  SMART PRODUCT CONTENT GENERATION
+------------------------------------------------------------------------
+Method : POST
+URL    : /api/admin/smart-product-content
+
+Request Body:
+{
+  "productName": "Fresh Cow Milk",
+  "category": "Dairy",
+  "keywords": ["organic", "fresh", "pasteurized"]
+}
+
+Response: AI-generated product description, tags, etc.
+
+------------------------------------------------------------------------
+25.13  EXPORT DATA
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/exports/{type}?format=csv
+
+URL Examples:
+  /api/admin/exports/orders?format=csv
+  /api/admin/exports/customers?format=csv
+  /api/admin/exports/products?format=csv
+
+Export Types: orders | customers | products | delivery-persons | transactions
+
+Response: File download (Content-Disposition: attachment)
+
+
+================================================================================
+  26. COMMAND CENTER & BULK OPERATIONS
+      Auth Required: YES (ROLE_ADMIN or ROLE_SUPER_ADMIN)
+================================================================================
+
+------------------------------------------------------------------------
+26.1  COMMAND CENTER (Operational Insights)
+------------------------------------------------------------------------
+Method : GET
+URL    : /api/admin/command-center
+
+Query Params (all optional):
+  period            (default: "month") - Analytics period
+  lowStockThreshold (default: 50)      - Flag products below this stock
+  delayedHours      (default: 2)       - Flag orders delayed by X hours
+
+URL Example: /api/admin/command-center?period=week&lowStockThreshold=20
+
+Response:
+{
+  "revenue": {
+    "current": 52000.00,
+    "previous": 48000.00,
+    "growth": 8.3
+  },
+  "orders": {
+    "total": 320,
+    "pending": 5,
+    "delayed": 2
+  },
+  "lowStockProducts": [
+    { "id": 55, "name": "Fresh Milk 1L", "stock": 15 }
+  ],
+  "topProducts": [ ... ],
+  "riderPerformance": [ ... ]
+}
+
+
+================================================================================
+  AUTHENTICATION HEADERS REFERENCE
+================================================================================
+
+For ALL protected endpoints, include this header:
+  Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Content-Type headers:
+  JSON requests  : Content-Type: application/json
+  File uploads   : Content-Type: multipart/form-data (let browser set boundary)
+
+CORS Allowed Origins:
+  https://admin.anushatechnologies.com
+  https://anushatechnologies.com
+  https://anushabazaar.com
+  http://localhost:3000
+  http://localhost:5173
+  http://localhost:8080
+
+================================================================================
+  COMMON HTTP STATUS CODES
+================================================================================
+
+  200 OK           - Success
+  201 Created      - Resource created successfully
+  204 No Content   - Deleted successfully (no body)
+  400 Bad Request  - Invalid request body or missing required fields
+  401 Unauthorized - Missing or invalid JWT token
+  403 Forbidden    - Authenticated but not authorized (wrong role/permission)
+  404 Not Found    - Resource not found
+  500 Internal Server Error - Backend error
+
+Error Response Format:
+{
+  "message": "Error description here"
+}
+  OR
+{
+  "error": "Error description here"
+}
+
+================================================================================
+  ADMIN PERMISSIONS (Module Access Keys)
+================================================================================
+
+When calling 2.6 (Set Permissions), use these keys:
+
+  "orders"         - Access Order Management
+  "customers"      - Access Customer Management
+  "delivery"       - Access Delivery Person Management
+  "products"       - Access Product Management
+  "stores"         - Access Store Management
+  "categories"     - Access Category/SubCategory Management
+  "coupons"        - Access Coupon Management
+  "banners"        - Access Banner Management
+  "analytics"      - Access Dashboard & Analytics
+  "notifications"  - Access Push Notification Management
+  "audit"          - Access Audit Logs
+  "fare-rules"     - Access Fare Rule Management
+  "campaigns"      - Access WhatsApp Campaign Management
+  "settings"       - Access Checkout Settings
+
+ROLE_SUPER_ADMIN: Automatically has ALL permissions.
+ROLE_ADMIN:       Has only the permissions explicitly granted by Super Admin.
+
+================================================================================
+  QUICK REFERENCE - ALL ADMIN ENDPOINTS
+================================================================================
+
+## AUTHENTICATION (No Auth Required)
+POST   /api/auth/adminpanel/login
+POST   /api/auth/adminpanel/firebase-login
+POST   /api/auth/adminpanel/verify-admin-code
+POST   /api/auth/adminpanel/prepare-password-reset
+POST   /api/auth/adminpanel/sync-firebase-password
+POST   /api/auth/adminpanel/change-password
+POST   /api/auth/adminpanel/refresh
+POST   /api/auth/adminpanel/logout
+
+## SUPER ADMIN ONLY
+GET    /api/super-admin/admin-users
+POST   /api/super-admin/admin-users
+PATCH  /api/super-admin/admin-users/{id}/status
+POST   /api/super-admin/admin-users/{id}/reset-password
+POST   /api/super-admin/admin-users/{id}/access-code
+PUT    /api/super-admin/admin-users/{id}/permissions
+PUT    /api/super-admin/admin-users/{id}/access-time
+
+## DASHBOARD
+GET    /api/admin/dashboard/summary
+GET    /api/admin/dashboard/active-users
+GET    /api/admin/dashboard/recent-orders
+GET    /api/admin/dashboard/analytics?period=today
+GET    /api/admin/dashboard/product-performance?period=week
+GET    /api/admin/dashboard
+GET    /api/admin/dashboard/live?activeWindowMinutes=15
+GET    /api/admin/dashboard/bar?period=7d
+GET    /api/admin/dashboard/stream
+
+## INCOME
+GET    /api/admin/income/summary
+GET    /api/admin/income/transactions
+
+## ORDERS
+GET    /api/admin/orders
+GET    /api/admin/orders/{orderId}
+POST   /api/admin/orders/{orderId}/accept
+POST   /api/admin/orders/{orderId}/reject
+POST   /api/admin/orders/{orderId}/refund
+GET    /api/admin/orders/{orderId}/refund-status
+POST   /api/admin/orders/{orderId}/assign
+POST   /api/admin/orders/{orderId}/broadcast
+POST   /api/admin/orders/{orderId}/notify-store
+POST   /api/admin/orders/{orderRef}/send-store-otp
+POST   /api/admin/orders/test-whatsapp?phone=...
+GET    /api/admin/orders/pending-assignment
+GET    /api/admin/delivery-orders
+GET    /api/admin/delivery-orders/status/{status}
+POST   /api/admin/orders/{orderId}/generate-delivery-otp
+
+## CUSTOMERS
+GET    /api/admin/customers
+GET    /api/admin/customers/{id}
+PUT    /api/admin/customers/{id}/status
+DELETE /api/admin/customers/{id}
+
+## DELIVERY PERSONS (admin routes)
+GET    /api/admin/delivery-persons
+GET    /api/admin/delivery-persons/{id}
+GET    /api/admin/delivery-persons/pending-approval
+GET    /api/admin/delivery-persons/available
+PUT    /api/admin/delivery-persons/{id}/status
+POST   /api/admin/delivery-persons/{id}/approve
+POST   /api/admin/delivery-persons/{id}/reject
+POST   /api/admin/delivery-persons/{id}/approve-photo
+POST   /api/admin/delivery-persons/{id}/reject-photo
+POST   /api/admin/delivery-persons/{id}/request-photo-reupload
+GET    /api/admin/delivery-persons/{id}/documents
+
+## DOCUMENTS (admin routes)
+GET    /api/admin/documents/pending-review
+POST   /api/admin/documents/{documentId}/approve
+POST   /api/admin/documents/{documentId}/reject
+POST   /api/admin/documents/{documentId}/request-reupload
+
+## DELIVERY ADMIN ROUTES
+GET    /api/delivery-admin/dashboard
+GET    /api/delivery-admin/delivery-persons
+GET    /api/delivery-admin/delivery-persons/{id}
+GET    /api/delivery-admin/delivery-persons/pending-approval
+GET    /api/delivery-admin/delivery-persons/available
+GET    /api/delivery-admin/delivery-persons/{id}/documents
+PUT    /api/delivery-admin/delivery-persons/{id}/status
+PUT    /api/delivery-admin/delivery-persons/{id}/details
+POST   /api/delivery-admin/delivery-persons/{id}/approve
+POST   /api/delivery-admin/delivery-persons/{id}/reject
+POST   /api/delivery-admin/delivery-persons/{id}/approve-photo
+POST   /api/delivery-admin/delivery-persons/{id}/reject-photo
+POST   /api/delivery-admin/delivery-persons/{id}/request-photo-reupload
+GET    /api/delivery-admin/documents/pending-review
+POST   /api/delivery-admin/documents/{documentId}/approve
+POST   /api/delivery-admin/documents/{documentId}/reject
+POST   /api/delivery-admin/documents/{documentId}/request-reupload
+GET    /api/delivery-admin/nearby-riders?storeId=1&radiusKm=5
+GET    /api/delivery-admin/orders
+POST   /api/delivery-admin/orders/{orderNumber}/store-accept
+PUT    /api/delivery-admin/stores/{id}/location
+GET    /api/delivery-admin/fare-rules
+PUT    /api/delivery-admin/fare-rules/{id}
+POST   /api/delivery-admin/fare-rules/{vehicleType}/rain-toggle
+POST   /api/delivery-admin/fare-rules/calculate
+
+## STORES
+GET    /api/stores
+GET    /api/stores/{id}
+GET    /api/stores/suggest?q=...
+POST   /api/stores (multipart)
+PUT    /api/stores/{id} (multipart)
+DELETE /api/stores/{id}
+GET    /api/admin/stores/dashboard
+GET    /api/admin/stores/{storeId}/orders
+GET    /api/admin/stores/{storeId}/income
+
+## PRODUCTS
+GET    /api/products
+GET    /api/products/{id}
+GET    /api/products/search?keyword=...
+GET    /api/products/suggestions?q=...&limit=10
+GET    /api/products/search/paginated?q=...&page=0&size=20
+GET    /api/products/trending
+GET    /api/products/bestseller
+GET    /api/products/filter
+POST   /api/products (multipart)
+PUT    /api/products/{id} (multipart)
+DELETE /api/products/{id}
+PUT    /api/admin/products/{id}/lifecycle
+POST   /api/admin/products/bulk-action
+POST   /api/admin/products/bulk
+GET    /api/admin/ratings
+DELETE /api/admin/ratings/{id}
+
+## CATEGORIES
+GET    /api/categories
+GET    /api/categories/{id}
+GET    /api/categories/search?keyword=...
+GET    /api/categories/filter/discount?minDiscount=10
+POST   /api/categories (multipart)
+PUT    /api/categories/{id} (multipart)
+DELETE /api/categories/{id}
+DELETE /api/categories/{id}/hard
+
+## SUBCATEGORIES
+GET    /api/subcategories
+GET    /api/subcategories/{categoryId}
+GET    /api/subcategories/detail/{id}
+POST   /api/subcategories
+POST   /api/subcategories (multipart)
+PUT    /api/subcategories/{id}
+PUT    /api/subcategories/{id} (multipart)
+DELETE /api/subcategories/{id}
+DELETE /api/subcategories/{id}/hard
+
+## COUPONS
+GET    /api/admin/coupons
+GET    /api/admin/coupons/{id}
+POST   /api/admin/coupons
+PUT    /api/admin/coupons/{id}
+DELETE /api/admin/coupons/{id}
+
+## BANNERS
+GET    /api/admin/banners
+POST   /api/admin/banners (multipart)
+PUT    /api/admin/banners/{id} (multipart)
+DELETE /api/admin/banners/{id}
+PUT    /api/admin/banners/{id}/status
+
+## FREE ITEM OFFERS
+GET    /api/admin/free-item-offers
+GET    /api/admin/free-item-offers/{id}
+POST   /api/admin/free-item-offers
+PUT    /api/admin/free-item-offers/{id}
+DELETE /api/admin/free-item-offers/{id}
+
+## CHECKOUT SETTINGS
+GET    /api/checkout-settings
+GET    /api/admin/checkout-settings
+PUT    /api/admin/checkout-settings
+
+## MARQUEE
+GET    /api/admin/marquee
+POST   /api/admin/marquee
+PUT    /api/admin/marquee/{id}
+DELETE /api/admin/marquee/{id}
+
+## NOTIFICATIONS
+POST   /api/admin/notifications/send
+POST   /api/admin/notifications/send-to-customers
+POST   /api/admin/notifications/send-to-delivery
+POST   /api/admin/notifications/send-by-token
+POST   /api/admin/notifications/whatsapp-campaigns (multipart)
+GET    /api/admin/notifications/whatsapp-campaigns/{campaignId}
+
+## ADVANCED
+GET    /api/admin/approvals
+POST   /api/admin/approvals
+PUT    /api/admin/approvals/{id}
+GET    /api/admin/delivery-zones
+POST   /api/admin/delivery-zones
+PUT    /api/admin/delivery-zones/{id}
+GET    /api/admin/campaign-targeting
+GET    /api/admin/campaign-drafts
+POST   /api/admin/campaign-drafts
+GET    /api/admin/fraud-scoring
+GET    /api/admin/smart-insights?period=month
+POST   /api/admin/smart-product-content
+GET    /api/admin/exports/{type}?format=csv
+
+## COMMAND CENTER
+GET    /api/admin/command-center
+
+## SEARCH
+GET    /api/admin/search?q=...&limit=10
+
+## SAVED FILTERS
+GET    /api/admin/saved-filters
+POST   /api/admin/saved-filters
+PUT    /api/admin/saved-filters/{id}
+DELETE /api/admin/saved-filters/{id}
+
+## AUDIT LOGS
+GET    /api/admin/audit-logs
+
+## USER LOGS
+GET    /api/user-logs
+GET    /api/user-logs/user/{userId}
+GET    /api/user-logs/role/{role}
+GET    /api/user-logs/action/{action}
+POST   /api/user-logs
+
+================================================================================
+  END OF DOCUMENTATION
+  Generated for: Anusha Technologies Admin Panel Frontend Team
+  Project: AnushaBazaar E-Commerce Platform
+  Date: April 2026
+================================================================================

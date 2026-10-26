@@ -1,0 +1,142 @@
+
+/* ─────────── Existing Template Tab (user-provided template) ─────────── */
+function ExistingTemplateTab({ onCampaignStart }: { onCampaignStart: (id: string) => void }) {
+  const [templateName, setTemplateName] = useState('');
+  const [recipientFile, setRecipientFile] = useState<File | null>(null);
+  const [activeOnly, setActiveOnly] = useState(true);
+  const [send, sendState] = useSendWhatsAppCampaignMutation();
+
+  const handleFile = (file: File | null) => {
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    const isSheet = name.endsWith('.csv') || name.endsWith('.xlsx') || name.endsWith('.xls');
+
+    if (isSheet) {
+      setRecipientFile(file);
+    } else {
+      toast.error(`Unsupported file type: ${file.name}. Use .csv or .xlsx`);
+    }
+  };
+
+  const handleSend = async () => {
+    if (!templateName.trim()) {
+      toast.error('Enter template name (e.g., your_template_name)');
+      return;
+    }
+    if (!recipientFile) {
+      toast.error('Upload recipients CSV/XLSX first');
+      return;
+    }
+
+    try {
+      const fd = new FormData();
+      fd.append('templateName', templateName.trim());
+      fd.append('file', recipientFile);
+      fd.append('activeOnly', String(activeOnly));
+
+      const response = await send(fd).unwrap();
+      onCampaignStart(response.campaignId);
+      toast.success(response.message || 'Campaign queued successfully');
+    } catch (error: any) {
+      toast.error(error?.data?.message || error?.message || 'Failed to send campaign');
+    }
+  };
+
+  return (
+    <>
+      <Alert severity="success" sx={{ borderRadius: 3 }}>
+        Use an existing <b>Meta-approved template</b> from your Business Suite. Just provide the template name and your recipients CSV file.
+      </Alert>
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.1fr 0.9fr' }, gap: 3 }}>
+        <Stack gap={3}>
+          <Card sx={{ borderRadius: 4, background: 'var(--color-card-elevated)' }}>
+            <CardContent sx={{ display: 'grid', gap: 2.2 }}>
+              <Stack direction="row" alignItems="center" gap={1.2}>
+                <SendIcon color="success" />
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 900 }}>Send Using Existing Template</Typography>
+                  <Typography variant="body2" color="text.secondary">Deploy any approved template to your recipients in bulk.</Typography>
+                </Box>
+              </Stack>
+
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 700, mb: 1, color: 'var(--color-text)' }}>Step 1 — Template Name (required)</Typography>
+                <TextField
+                  label="Template name"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="e.g., my_promo_template"
+                  fullWidth
+                  size="small"
+                  sx={fieldStyle}
+                  helperText="Exact name from Meta Business Suite"
+                />
+              </Box>
+
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 700, mb: 1, color: 'var(--color-text)' }}>Step 2 — Recipients (required)</Typography>
+                <Button
+                  component="label"
+                  variant="contained"
+                  color={recipientFile ? 'success' : 'primary'}
+                  fullWidth
+                  sx={{ borderRadius: 3, py: 1.6, fontWeight: 800 }}
+                >
+                  {recipientFile ? `✓ ${recipientFile.name}` : 'Upload recipients CSV/XLSX'}
+                  <input hidden type="file" accept=".csv,.xlsx,.xls" onChange={(e) => handleFile(e.target.files?.[0] ?? null)} />
+                </Button>
+                <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'var(--color-text-muted)' }}>
+                  Required columns: <b>Phone Number</b> (with or without 91), <b>Name</b> (optional). Add <b>Active</b> column with true/false to filter recipients.
+                </Typography>
+              </Box>
+
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>Step 3 — Options</Typography>
+                <FormControlLabel
+                  control={<Checkbox checked={activeOnly} onChange={(e) => setActiveOnly(e.target.checked)} />}
+                  label="Active recipients only"
+                  sx={{ fontWeight: 700 }}
+                />
+              </Box>
+
+              <Button
+                variant="contained"
+                color="success"
+                fullWidth
+                disabled={sendState.isLoading || !templateName.trim() || !recipientFile}
+                onClick={handleSend}
+                sx={{ borderRadius: 3, py: 1.6, fontWeight: 800 }}
+              >
+                {sendState.isLoading ? 'Sending…' : 'Send campaign'}
+              </Button>
+            </CardContent>
+          </Card>
+        </Stack>
+
+        <Stack gap={2}>
+          <Card sx={{ borderRadius: 4, background: 'var(--color-card-elevated)' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 900, mb: 2 }}>Sample CSV</Typography>
+              <Box
+                component="pre"
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  background: 'rgba(0,0,0,0.32)',
+                  fontSize: 12,
+                  overflowX: 'auto',
+                }}
+              >
+{`Phone Number,Name,Active
+919876543210,Rahul,true
+919812345678,Priya,true
+919988776655,Alex,false`}
+              </Box>
+            </CardContent>
+          </Card>
+        </Stack>
+      </Box>
+    </>
+  );
+}

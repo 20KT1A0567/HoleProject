@@ -1,0 +1,1766 @@
+================================================================================
+         ANUSHABAZAAR — CUSTOMER APP COMPLETE API REFERENCE
+         Base URL: https://api.anushatechnologies.com
+================================================================================
+
+Auth Header (JWT — required for protected endpoints):
+  Authorization: Bearer <accessToken>
+
+NOTE ON ADDRESSES: latitude and longitude are MANDATORY when creating/updating
+an address. The delivery system uses these for rider assignment and routing.
+
+================================================================================
+SECTION 1 — AUTHENTICATION  (No JWT required)
+================================================================================
+
+---
+1.1  CHECK IF PHONE IS ALREADY REGISTERED
+---
+GET https://api.anushatechnologies.com/api/auth/check-phone/{phoneNumber}
+
+Call this BEFORE triggering Firebase OTP to decide Login vs Sign-Up screen.
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/auth/check-phone/+919876543210
+  Headers : (none)
+
+Success Response (200):
+{
+  "exists": true          // true → show Login screen
+}                         // false → show Sign-Up screen
+
+
+---
+1.2  SIGN UP (New Customer)
+---
+POST https://api.anushatechnologies.com/api/auth/signup
+
+Flow: User completes Firebase Phone OTP on device → get Firebase ID token → call this.
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/auth/signup
+  Headers : Content-Type: application/json
+  Body (raw JSON):
+{
+  "firebaseIdToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+  "name": "Ramesh Kumar",
+  "email": "ramesh@example.com",
+  "fcmToken": "fMEuXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+
+Fields:
+  firebaseIdToken  (required) - Firebase ID token after phone OTP verified
+  name             (optional) - Customer display name
+  email            (optional) - Customer email
+  fcmToken         (optional) - Firebase Cloud Messaging token for push notifications
+
+Success Response (200):
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+  "jwtToken": "eyJhbGciOiJIUzI1NiJ9...",
+  "refreshToken": "abc123refreshtoken",
+  "expiresIn": 86400,
+  "customerId": 101,
+  "phoneNumber": "+919876543210",
+  "name": "Ramesh Kumar",
+  "email": "ramesh@example.com",
+  "roles": "CUSTOMER"
+}
+
+Error (409 Conflict) — phone already registered:
+{
+  "error": "Account already exists. Please login."
+}
+
+Error (401) — invalid Firebase token:
+{
+  "error": "Invalid or expired Firebase token"
+}
+
+
+---
+1.3  LOGIN (Existing Customer)
+---
+POST https://api.anushatechnologies.com/api/auth/login
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/auth/login
+  Headers : Content-Type: application/json
+  Body (raw JSON):
+{
+  "firebaseIdToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+  "fcmToken": "fMEuXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+
+Fields:
+  firebaseIdToken  (required) - Firebase ID token after phone OTP verified
+  fcmToken         (optional) - FCM token (updates device token on login)
+
+Success Response (200):
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+  "jwtToken": "eyJhbGciOiJIUzI1NiJ9...",
+  "refreshToken": "abc123refreshtoken",
+  "expiresIn": 86400,
+  "customerId": 101,
+  "phoneNumber": "+919876543210",
+  "name": "Ramesh Kumar",
+  "email": "ramesh@example.com",
+  "roles": "CUSTOMER"
+}
+
+Error (404) — phone not registered:
+{
+  "error": "No account found. Please sign up as a new user."
+}
+
+
+---
+1.4  REFRESH ACCESS TOKEN
+---
+POST https://api.anushatechnologies.com/api/auth/refresh
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/auth/refresh
+  Headers : Content-Type: application/json
+  Body (raw JSON):
+{
+  "refreshToken": "abc123refreshtoken"
+}
+
+Success Response (200):
+{
+  "accessToken": "neweyJhbGciOiJIUzI1NiJ9...",
+  "refreshToken": "newrefreshtoken456",
+  "expiresIn": 86400
+}
+
+Error (401):
+{
+  "error": "Refresh token expired or invalid"
+}
+
+
+---
+1.5  LOGOUT
+---
+POST https://api.anushatechnologies.com/api/auth/logout
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/auth/logout
+  Headers : Content-Type: application/json
+  Body (raw JSON):
+{
+  "refreshToken": "abc123refreshtoken"
+}
+
+Success Response (200):
+{
+  "message": "Logged out successfully"
+}
+
+
+================================================================================
+SECTION 2 — CUSTOMER PROFILE  (JWT Required)
+================================================================================
+
+---
+2.1  GET PROFILE
+---
+GET https://api.anushatechnologies.com/api/customer/profile
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/customer/profile
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200):
+{
+  "id": 101,
+  "name": "Ramesh Kumar",
+  "phoneNumber": "+919876543210",
+  "email": "ramesh@example.com",
+  "isActive": true,
+  "createdAt": "2024-01-15T10:30:00",
+  "updatedAt": "2024-03-20T14:00:00"
+}
+
+
+---
+2.2  UPDATE PROFILE
+---
+PUT https://api.anushatechnologies.com/api/customer/profile
+
+Postman example:
+  Method  : PUT
+  URL     : https://api.anushatechnologies.com/api/customer/profile
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "name": "Ramesh K Kumar",
+  "email": "ramesh.new@example.com"
+}
+
+Both fields are optional. Provide only what needs updating.
+
+Success Response (200):
+{
+  "id": 101,
+  "name": "Ramesh K Kumar",
+  "phoneNumber": "+919876543210",
+  "email": "ramesh.new@example.com",
+  "isActive": true,
+  "createdAt": "2024-01-15T10:30:00",
+  "updatedAt": "2024-04-16T09:00:00"
+}
+
+
+================================================================================
+SECTION 3 — ADDRESSES  (JWT Required)
+================================================================================
+
+IMPORTANT: latitude and longitude are MANDATORY fields.
+The delivery partner app uses these coordinates for:
+  - Store-to-customer routing
+  - ETA calculation
+  - Geo-fencing validation
+
+---
+3.1  GET ALL ADDRESSES
+---
+GET https://api.anushatechnologies.com/api/addresses
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/addresses
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200):
+[
+  {
+    "id": 5,
+    "addressType": "home",
+    "flatNumber": "Flat 3B",
+    "addressLine1": "Srinivasa Apartments",
+    "addressLine2": "Kukatpally Housing Board Colony",
+    "landmark": "Near KPHB Metro Station",
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "postalCode": "500072",
+    "latitude": 17.4947,
+    "longitude": 78.3996,
+    "isDefault": true
+  },
+  {
+    "id": 6,
+    "addressType": "work",
+    "flatNumber": "Floor 6",
+    "addressLine1": "Plot 12, Cyberabad",
+    "addressLine2": "Hitech City",
+    "landmark": "Near Mindspace",
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "postalCode": "500081",
+    "latitude": 17.4400,
+    "longitude": 78.3489,
+    "isDefault": false
+  }
+]
+
+
+---
+3.2  ADD NEW ADDRESS  ← latitude & longitude MANDATORY
+---
+POST https://api.anushatechnologies.com/api/addresses
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/addresses
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "addressType": "home",
+  "flatNumber": "Flat 3B",
+  "addressLine1": "Srinivasa Apartments",
+  "addressLine2": "Kukatpally Housing Board Colony",
+  "landmark": "Near KPHB Metro Station",
+  "city": "Hyderabad",
+  "state": "Telangana",
+  "postalCode": "500072",
+  "latitude": 17.494718,
+  "longitude": 78.399614,
+  "isDefault": true
+}
+
+Fields:
+  addressType    (required) - "home" | "work" | "other"
+  flatNumber     (optional) - Flat/door/unit number, e.g. "Flat 3B"
+  addressLine1   (required) - Building/house name or primary street address
+  addressLine2   (optional) - Area/locality/colony
+  landmark       (optional) - Nearby landmark for easy finding
+  city           (required) - City name
+  state          (optional) - State name
+  postalCode     (required) - 6-digit PIN code
+  latitude       (MANDATORY) - GPS latitude from device location picker
+  longitude      (MANDATORY) - GPS longitude from device location picker
+  isDefault      (required) - true to make this the default delivery address
+
+NOTE: If isDefault is true, the previous default address is automatically
+      cleared. Only one address can be default at a time.
+
+Success Response (200):
+{
+  "id": 7,
+  "addressType": "home",
+  "flatNumber": "Flat 3B",
+  "addressLine1": "Srinivasa Apartments",
+  "addressLine2": "Kukatpally Housing Board Colony",
+  "landmark": "Near KPHB Metro Station",
+  "city": "Hyderabad",
+  "state": "Telangana",
+  "postalCode": "500072",
+  "latitude": 17.494718,
+  "longitude": 78.399614,
+  "isDefault": true
+}
+
+
+---
+3.3  UPDATE ADDRESS  ← latitude & longitude MANDATORY
+---
+PUT https://api.anushatechnologies.com/api/addresses/{id}
+
+Postman example:
+  Method  : PUT
+  URL     : https://api.anushatechnologies.com/api/addresses/7
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "addressType": "home",
+  "flatNumber": "Flat 4A",
+  "addressLine1": "Srinivasa Apartments",
+  "addressLine2": "Kukatpally Housing Board Colony",
+  "landmark": "Near KPHB Metro Station",
+  "city": "Hyderabad",
+  "state": "Telangana",
+  "postalCode": "500072",
+  "latitude": 17.494718,
+  "longitude": 78.399614,
+  "isDefault": true
+}
+
+Success Response (200): Same as Add Address response
+
+Error (403): Customer doesn't own this address
+
+
+---
+3.4  DELETE ADDRESS
+---
+DELETE https://api.anushatechnologies.com/api/addresses/{id}
+
+Postman example:
+  Method  : DELETE
+  URL     : https://api.anushatechnologies.com/api/addresses/7
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200): empty body
+Error (403): Customer doesn't own this address
+
+
+================================================================================
+SECTION 4 — CATEGORIES  (Public — No JWT required)
+================================================================================
+
+---
+4.1  GET ALL CATEGORIES
+---
+GET https://api.anushatechnologies.com/api/categories
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/categories
+  Headers : (none)
+
+Success Response (200):
+[
+  {
+    "id": 1,
+    "name": "Fruits & Vegetables",
+    "imageUrl": "https://...",
+    "discount": 10.0,
+    "isActive": true
+  },
+  {
+    "id": 2,
+    "name": "Dairy & Eggs",
+    "imageUrl": "https://...",
+    "discount": 5.0,
+    "isActive": true
+  }
+]
+
+
+---
+4.2  GET CATEGORY BY ID
+---
+GET https://api.anushatechnologies.com/api/categories/{id}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/categories/1
+  Headers : (none)
+
+Success Response (200): single category object
+
+
+---
+4.3  SEARCH CATEGORIES
+---
+GET https://api.anushatechnologies.com/api/categories/search?keyword={keyword}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/categories/search?keyword=fruit
+  Headers : (none)
+
+Success Response (200): array of matching categories
+
+
+================================================================================
+SECTION 5 — SUB-CATEGORIES  (Public — No JWT required)
+================================================================================
+
+---
+5.1  GET ALL SUB-CATEGORIES
+---
+GET https://api.anushatechnologies.com/api/subcategories
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/subcategories
+  Headers : (none)
+
+Success Response (200): array of subcategory objects
+
+
+---
+5.2  GET SUB-CATEGORIES BY CATEGORY
+---
+GET https://api.anushatechnologies.com/api/subcategories/{categoryId}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/subcategories/1
+  Headers : (none)
+
+Success Response (200):
+[
+  {
+    "id": 10,
+    "name": "Leafy Vegetables",
+    "imageUrl": "https://...",
+    "videoUrl": null,
+    "categoryId": 1,
+    "categoryName": "Fruits & Vegetables"
+  },
+  {
+    "id": 11,
+    "name": "Root Vegetables",
+    "imageUrl": "https://...",
+    "videoUrl": null,
+    "categoryId": 1,
+    "categoryName": "Fruits & Vegetables"
+  }
+]
+
+
+---
+5.3  GET SUB-CATEGORY BY ID
+---
+GET https://api.anushatechnologies.com/api/subcategories/detail/{id}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/subcategories/detail/10
+  Headers : (none)
+
+Success Response (200): single subcategory object
+
+
+================================================================================
+SECTION 6 — STORES  (Public — No JWT required)
+================================================================================
+
+---
+6.1  GET ALL STORES (paginated)
+---
+GET https://api.anushatechnologies.com/api/stores
+
+Query Params:
+  name  (optional) - filter by name
+  page  (optional, default 0)
+  size  (optional, default 10)
+  sort  (optional, default displayOrder,asc)
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/stores?page=0&size=10
+  Headers : (none)
+
+Success Response (200):
+{
+  "content": [
+    {
+      "id": 1,
+      "name": "Fresh Mart - Kukatpally",
+      "imageUrl": "https://...",
+      "isActive": true,
+      "displayOrder": 1
+    }
+  ],
+  "totalPages": 3,
+  "totalElements": 25,
+  "size": 10,
+  "number": 0
+}
+
+
+---
+6.2  GET STORE BY ID
+---
+GET https://api.anushatechnologies.com/api/stores/{id}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/stores/1
+  Headers : (none)
+
+
+---
+6.3  SUGGEST STORES (autocomplete)
+---
+GET https://api.anushatechnologies.com/api/stores/suggest?q={query}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/stores/suggest?q=fresh
+  Headers : (none)
+
+Success Response (200): array of matching store objects
+
+
+================================================================================
+SECTION 7 — PRODUCTS  (Public — No JWT required)
+================================================================================
+
+---
+7.1  GET ALL PRODUCTS
+---
+GET https://api.anushatechnologies.com/api/products
+
+Query Params:
+  storeId (optional) - filter by store
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/products?storeId=1
+  Headers : (none)
+
+Success Response (200):
+[
+  {
+    "id": 201,
+    "name": "Organic Tomatoes",
+    "description": "Fresh organic tomatoes",
+    "imageUrl": "https://...",
+    "categoryId": 1,
+    "categoryName": "Fruits & Vegetables",
+    "subCategoryId": 10,
+    "subCategoryName": "Leafy Vegetables",
+    "storeId": 1,
+    "storeName": "Fresh Mart - Kukatpally",
+    "isActive": true,
+    "isTrending": false,
+    "isBestSeller": true,
+    "variants": [
+      {
+        "id": 301,
+        "name": "500g",
+        "price": 45.00,
+        "mrp": 55.00,
+        "stock": 100
+      }
+    ]
+  }
+]
+
+
+---
+7.2  GET PRODUCT BY ID
+---
+GET https://api.anushatechnologies.com/api/products/{id}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/products/201
+  Headers : (none)
+
+
+---
+7.3  SEARCH PRODUCTS
+---
+GET https://api.anushatechnologies.com/api/products/search?keyword={keyword}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/products/search?keyword=tomato
+  Headers : (none)
+
+
+---
+7.4  SEARCH SUGGESTIONS (Instant / Autocomplete)
+---
+GET https://api.anushatechnologies.com/api/products/suggestions?q={query}&limit={limit}
+
+Zepto-style fast suggestions — ranked by relevance, capped at 20.
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/products/suggestions?q=tom&limit=10
+  Headers : (none)
+
+Success Response (200): array of up to 10 product objects, name-matches first
+
+
+---
+7.5  PAGINATED SEARCH
+---
+GET https://api.anushatechnologies.com/api/products/search/paginated?q={query}&page=0&size=20
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/products/search/paginated?q=milk&page=0&size=20
+  Headers : (none)
+
+Success Response (200):
+{
+  "content": [ ...products... ],
+  "totalPages": 2,
+  "totalElements": 35,
+  "size": 20,
+  "number": 0
+}
+
+
+---
+7.6  TRENDING PRODUCTS
+---
+GET https://api.anushatechnologies.com/api/products/trending
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/products/trending
+  Headers : (none)
+
+
+---
+7.7  BEST SELLER PRODUCTS
+---
+GET https://api.anushatechnologies.com/api/products/bestseller
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/products/bestseller
+  Headers : (none)
+
+
+---
+7.8  FILTER PRODUCTS
+---
+GET https://api.anushatechnologies.com/api/products/filter
+
+Query Params (all optional):
+  categoryId    - filter by category
+  subCategoryId - filter by subcategory
+  storeId       - filter by store
+  minPrice      - minimum price
+  maxPrice      - maximum price
+  trending      - true/false
+  keyword       - text search
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/products/filter?categoryId=1&minPrice=10&maxPrice=200
+  Headers : (none)
+
+
+================================================================================
+SECTION 8 — WISHLIST  (JWT Required)
+================================================================================
+
+---
+8.1  GET WISHLIST
+---
+GET https://api.anushatechnologies.com/api/customer/products/wishlist
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/customer/products/wishlist
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200): array of product objects in wishlist
+
+
+---
+8.2  ADD TO WISHLIST
+---
+POST https://api.anushatechnologies.com/api/customer/products/wishlist
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/customer/products/wishlist
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "productId": 201
+}
+
+Success Response (200):
+{
+  "success": true,
+  "message": "Product added to wishlist"
+}
+
+
+---
+8.3  REMOVE FROM WISHLIST
+---
+DELETE https://api.anushatechnologies.com/api/customer/products/wishlist?productId={productId}
+
+Postman example:
+  Method  : DELETE
+  URL     : https://api.anushatechnologies.com/api/customer/products/wishlist?productId=201
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200):
+{
+  "success": true,
+  "message": "Product removed from wishlist"
+}
+
+
+---
+8.4  MERGE GUEST WISHLIST (on login)
+---
+POST https://api.anushatechnologies.com/api/customer/products/wishlist/merge
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/customer/products/wishlist/merge
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "productIds": [201, 202, 205]
+}
+
+Success Response (200):
+{
+  "success": true,
+  "message": "Wishlist merged successfully"
+}
+
+
+================================================================================
+SECTION 9 — PRODUCT RATINGS  (JWT Required for POST, Public for GET)
+================================================================================
+
+---
+9.1  ADD RATING
+---
+POST https://api.anushatechnologies.com/api/customer/products/rating
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/customer/products/rating
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "productId": 201,
+  "rating": 4,
+  "comment": "Very fresh tomatoes, delivered on time!"
+}
+
+Fields:
+  productId  (required) - product to rate
+  rating     (required) - 1 to 5
+  comment    (optional) - review text
+
+Success Response (200):
+{
+  "success": true,
+  "message": "Rating submitted successfully"
+}
+
+Error (400): If customer hasn't purchased this product or already rated it
+
+
+---
+9.2  GET PRODUCT RATINGS
+---
+GET https://api.anushatechnologies.com/api/customer/products/{productId}/ratings
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/customer/products/201/ratings
+  Headers : (none — public endpoint)
+
+Success Response (200):
+{
+  "success": true,
+  "ratings": [
+    {
+      "id": 1,
+      "rating": 4,
+      "comment": "Very fresh!",
+      "customerId": 101,
+      "productId": 201,
+      "createdAt": "2024-04-10T10:00:00"
+    }
+  ]
+}
+
+
+================================================================================
+SECTION 10 — CART  (JWT Required)
+================================================================================
+
+---
+10.1  GET CART
+---
+GET https://api.anushatechnologies.com/api/cart
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/cart
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200):
+{
+  "cartId": 55,
+  "items": [
+    {
+      "id": 1001,
+      "variantId": 301,
+      "variantName": "500g",
+      "productId": 201,
+      "productName": "Organic Tomatoes",
+      "productImage": "https://...",
+      "quantity": 2,
+      "unitPrice": 45.00,
+      "totalPrice": 90.00
+    }
+  ],
+  "subtotal": 90.00,
+  "estimatedDeliveryCharge": 30.00,
+  "deliveryCharge": 30.00,
+  "platformFee": 5.00,
+  "grandTotal": 125.00
+}
+
+
+---
+10.2  ADD ITEM TO CART
+---
+POST https://api.anushatechnologies.com/api/cart/items
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/cart/items
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "variantId": 301,
+  "quantity": 2
+}
+
+NOTE: Use variantId (NOT productId). Each product has one or more variants
+(e.g. 500g, 1kg). Get variantId from the product's "variants" array.
+
+Success Response (200): full cart response (same as GET /api/cart)
+
+
+---
+10.3  UPDATE CART ITEM QUANTITY
+---
+PUT https://api.anushatechnologies.com/api/cart/items/{itemId}?quantity={qty}
+
+Postman example:
+  Method  : PUT
+  URL     : https://api.anushatechnologies.com/api/cart/items/1001?quantity=3
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+  itemId   - cart item ID (from cart response)
+  quantity - new quantity (set to 0 to remove)
+
+Success Response (200): full cart response
+
+
+---
+10.4  REMOVE CART ITEM
+---
+DELETE https://api.anushatechnologies.com/api/cart/items/{itemId}
+
+Postman example:
+  Method  : DELETE
+  URL     : https://api.anushatechnologies.com/api/cart/items/1001
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200): full cart response (updated)
+
+
+---
+10.5  CLEAR ENTIRE CART
+---
+DELETE https://api.anushatechnologies.com/api/cart
+
+Postman example:
+  Method  : DELETE
+  URL     : https://api.anushatechnologies.com/api/cart
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200): empty body
+
+
+---
+10.6  MERGE GUEST CART (on login)
+---
+POST https://api.anushatechnologies.com/api/cart/merge
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/cart/merge
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+[
+  { "variantId": 301, "quantity": 2 },
+  { "variantId": 305, "quantity": 1 }
+]
+
+Success Response (200): full cart response (merged)
+
+
+================================================================================
+SECTION 11 — COUPONS  (Public for GET, No JWT needed)
+================================================================================
+
+---
+11.1  GET ACTIVE COUPONS
+---
+GET https://api.anushatechnologies.com/api/coupons/active
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/coupons/active
+  Headers : (none)
+
+Success Response (200):
+[
+  {
+    "id": 1,
+    "code": "WELCOME10",
+    "discountType": "PERCENTAGE",
+    "discountValue": 10.0,
+    "minOrderValue": 200.0,
+    "maxDiscount": 100.0,
+    "expiryDate": "2024-12-31",
+    "isActive": true
+  }
+]
+
+
+---
+11.2  APPLY COUPON (validate & preview discount)
+---
+GET https://api.anushatechnologies.com/api/coupons/apply?code={code}&customerId={customerId}&cartValue={cartValue}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/coupons/apply?code=WELCOME10&customerId=101&cartValue=500
+  Headers : (none)
+
+  code        - coupon code
+  customerId  - the logged-in customer's ID (from auth response)
+  cartValue   - current cart subtotal (before discount)
+
+Success Response (200):
+{
+  "success": true,
+  "code": "WELCOME10",
+  "discount": 50.00,
+  "finalValue": 450.00
+}
+
+Error (400):
+{
+  "success": false,
+  "error": "Coupon minimum order value not met"
+}
+
+
+================================================================================
+SECTION 12 — ORDERS  (JWT Required)
+================================================================================
+
+---
+12.1  PLACE ORDER
+---
+POST https://api.anushatechnologies.com/api/orders
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/orders
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "addressId": 5,
+  "paymentMethod": "COD",
+  "couponCode": "WELCOME10"
+}
+
+Fields:
+  addressId      (required) - delivery address ID (must belong to customer)
+  paymentMethod  (required) - "COD" or "ONLINE"
+  couponCode     (optional) - coupon code to apply discount
+
+NOTE: For ONLINE payment, after placing order call POST /api/payment/initiate
+
+Success Response (200):
+{
+  "id": 3001,
+  "orderId": 3001,
+  "orderNumber": "GRO-84726153",
+  "subtotal": 500.00,
+  "deliveryCharge": 30.00,
+  "platformFee": 5.00,
+  "tax": 0.00,
+  "discount": 50.00,
+  "grandTotal": 485.00,
+  "paymentMethod": "COD",
+  "orderStatus": "PLACED",
+  "paymentStatus": "PENDING",
+  "placedAt": "2024-04-16T10:00:00",
+  "address": {
+    "id": 5,
+    "addressType": "home",
+    "flatNumber": "Flat 3B",
+    "addressLine1": "Srinivasa Apartments",
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "postalCode": "500072"
+  },
+  "items": [
+    {
+      "id": 5001,
+      "productId": 201,
+      "variantId": 301,
+      "productName": "Organic Tomatoes",
+      "variantName": "500g",
+      "quantity": 2,
+      "unitPrice": 45.00,
+      "totalPrice": 90.00,
+      "storeName": "Fresh Mart - Kukatpally"
+    }
+  ]
+}
+
+
+---
+12.2  GET MY ORDERS
+---
+GET https://api.anushatechnologies.com/api/orders
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/orders
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200): array of order objects
+
+
+---
+12.3  GET ORDER BY ID
+---
+GET https://api.anushatechnologies.com/api/orders/{orderId}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/orders/3001
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200): single order object (same structure as place order response)
+
+
+---
+12.4  CANCEL ORDER
+---
+PATCH https://api.anushatechnologies.com/api/orders/{orderId}/cancel
+
+Postman example:
+  Method  : PATCH
+  URL     : https://api.anushatechnologies.com/api/orders/3001/cancel
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "reason": "Changed my mind"
+}
+
+Body is optional. reason is optional.
+
+Success Response (200): updated order object with orderStatus: "CANCELLED"
+
+
+---
+12.5  RECENTLY ORDERED PRODUCTS
+---
+GET https://api.anushatechnologies.com/api/orders/recent-products
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/orders/recent-products
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200): array of product objects ordered recently by this customer
+
+
+================================================================================
+SECTION 13 — PAYMENT  (JWT Required, except webhook)
+================================================================================
+
+---
+13.1  INITIATE ONLINE PAYMENT  (Step 1)
+---
+POST https://api.anushatechnologies.com/api/payment/initiate
+
+Call after placing order with paymentMethod: "ONLINE"
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/payment/initiate
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "orderId": 3001
+}
+
+Success Response (200):
+{
+  "razorpayOrderId": "order_OyZhxxxxxxx",
+  "amount": 48500,
+  "currency": "INR",
+  "receipt": "GRO-84726153",
+  "keyId": "rzp_live_xxxxxxxxxx"
+}
+
+NOTE: amount is in paise (1 INR = 100 paise, so 485 INR = 48500 paise)
+Use razorpayOrderId + keyId to open Razorpay checkout in the app.
+
+
+---
+13.2  VERIFY PAYMENT  (Step 2 — after Razorpay success callback)
+---
+POST https://api.anushatechnologies.com/api/payment/verify
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/payment/verify
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "razorpayOrderId": "order_OyZhxxxxxxx",
+  "razorpayPaymentId": "pay_OyZjxxxxxxxx",
+  "razorpaySignature": "abc123def456signaturehash",
+  "receipt": "GRO-84726153"
+}
+
+All fields come from Razorpay's onSuccess callback.
+
+Success Response (200):
+{
+  "success": true,
+  "message": "Payment verified successfully"
+}
+
+Error (400):
+{
+  "success": false,
+  "error": "Signature verification failed"
+}
+
+
+---
+13.3  REQUEST RAZORPAY REFUND
+---
+POST https://api.anushatechnologies.com/api/payment/refund/request
+
+Use only after an ONLINE / ONLINE_WALLET order is cancelled or rejected.
+Normal customer flow: call PATCH /api/orders/{orderId}/cancel first; backend
+automatically tries Razorpay refund for paid online orders.
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/payment/refund/request
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "orderId": 3001,
+  "reason": "Customer cancelled order"
+}
+
+Optional partial refund:
+{
+  "orderId": 3001,
+  "amount": 100.00,
+  "reason": "Partial refund approved"
+}
+
+Success Response (200):
+{
+  "success": true,
+  "orderId": 3001,
+  "orderNumber": "AB1234567890",
+  "paymentMethod": "ONLINE",
+  "paymentStatus": "REFUNDED",
+  "refundStatus": "PROCESSED",
+  "refundId": "rfnd_XXXXXXXXXXXX",
+  "refundAmount": 485.00,
+  "refundReason": "Customer cancelled order",
+  "refundedAt": "2026-04-21T12:00:00",
+  "message": "Refund processed successfully"
+}
+
+Fields:
+  orderId       (required) - internal order id
+  amount        (optional) - refund amount in rupees; omit for full Razorpay paid amount
+  reason        (optional) - customer/admin refund reason
+
+Refund status values:
+  NOT_REQUESTED - no Razorpay refund created yet
+  PENDING       - Razorpay accepted refund, processing is pending
+  PROCESSED     - refund processed by Razorpay
+  FAILED        - refund failed; show support/admin review message
+
+
+---
+13.4  GET REFUND STATUS
+---
+GET https://api.anushatechnologies.com/api/payment/refund-status/{orderId}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/payment/refund-status/3001
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200):
+{
+  "success": true,
+  "orderId": 3001,
+  "orderNumber": "AB1234567890",
+  "paymentMethod": "ONLINE",
+  "paymentStatus": "REFUNDED",
+  "refundStatus": "PROCESSED",
+  "refundId": "rfnd_XXXXXXXXXXXX",
+  "refundAmount": 485.00,
+  "refundReason": "Customer cancelled order",
+  "refundedAt": "2026-04-21T12:00:00",
+  "message": "Refund status fetched"
+}
+
+
+---
+13.5  RAZORPAY WEBHOOK  (Public — No JWT — Server-to-Server)
+---
+POST https://api.anushatechnologies.com/api/payment/webhook
+
+This is called by Razorpay servers directly. Do NOT call from app.
+Header: X-Razorpay-Signature: <razorpay-signature>
+Body: raw JSON from Razorpay
+
+
+================================================================================
+SECTION 14 — ORDER TRACKING  (Public — No JWT required)
+================================================================================
+
+---
+14.1  GET LIVE TRACKING DATA
+---
+GET https://api.anushatechnologies.com/api/tracking/{orderNumber}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/tracking/GRO-84726153
+  Headers : (none)
+
+Response while rider is in transit (200):
+{
+  "orderNumber": "GRO-84726153",
+  "status": "EN_ROUTE_TO_CUSTOMER",
+  "deliveryPersonName": "Ravi Kumar",
+  "deliveryPersonPhone": "+919876543210",
+  "lat": 17.4820,
+  "lng": 78.3900,
+  "updatedAt": "2024-04-16T11:00:00",
+  "isLive": true
+}
+
+Response when no live tracking:
+{
+  "orderNumber": "GRO-84726153",
+  "status": "PLACED",
+  "isLive": false,
+  "message": "Order placed. Waiting for store confirmation."
+}
+
+Order Status Values:
+  PENDING                 - Order created, awaiting processing
+  PLACED                  - Order placed, waiting for store confirmation
+  STORE_NOTIFIED          - Store has been notified
+  STORE_ACCEPTED          - Store accepted the order
+  STORE_REJECTED          - Store rejected the order
+  PICKUP_OTP_GENERATED    - Pickup OTP generated for rider
+  BROADCASTED_TO_RIDERS   - Looking for nearby delivery rider
+  RIDER_ASSIGNED          - Delivery rider assigned
+  REACHED_STORE           - Rider reached the store
+  PICKUP_OTP_VERIFIED     - Rider verified pickup OTP
+  PICKED_UP               - Rider picked up the order
+  OUT_FOR_DELIVERY        - Order is on the way
+  EN_ROUTE_TO_CUSTOMER    - Rider heading to customer
+  DELIVERED               - Order delivered
+  CANCELLED               - Order cancelled
+  RIDER_REJECTED          - Rider could not take the order
+
+TIP: Also listen to Firebase RTDB at tracking/{orderNumber} for real-time
+     updates without polling this REST endpoint.
+
+
+================================================================================
+SECTION 15 — BANNERS  (Public — No JWT required)
+================================================================================
+
+---
+15.1  GET ACTIVE BANNERS
+---
+GET https://api.anushatechnologies.com/api/customer/banners
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/customer/banners
+  Headers : (none)
+
+Success Response (200):
+{
+  "success": true,
+  "banners": [
+    {
+      "id": 1,
+      "title": "Summer Sale",
+      "imageUrl": "https://...",
+      "linkUrl": "https://...",
+      "targetAudience": "CUSTOMER",
+      "isActive": true,
+      "displayOrder": 1
+    }
+  ]
+}
+
+
+================================================================================
+SECTION 16 — WALLET  (JWT Required)
+================================================================================
+
+---
+16.1  GET WALLET BALANCE
+---
+GET https://api.anushatechnologies.com/api/wallet/balance/{userMainId}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/wallet/balance/101
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+  userMainId can be either the customer's ID or userMainId from auth response.
+
+Success Response (200):
+{
+  "success": true,
+  "balance": 250.00
+}
+
+
+---
+16.2  GET WALLET TRANSACTION HISTORY
+---
+GET https://api.anushatechnologies.com/api/wallet/history/{userMainId}
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/wallet/history/101
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200):
+{
+  "success": true,
+  "history": [
+    {
+      "id": 1,
+      "type": "CREDIT",
+      "amount": 100.00,
+      "description": "Referral bonus",
+      "createdAt": "2024-04-10T10:00:00"
+    },
+    {
+      "id": 2,
+      "type": "DEBIT",
+      "amount": 50.00,
+      "description": "Order payment",
+      "createdAt": "2024-04-12T14:30:00"
+    }
+  ]
+}
+
+
+---
+16.3  ADD MONEY TO WALLET
+---
+POST https://api.anushatechnologies.com/api/wallet/add
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/wallet/add
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "userMainId": 101,
+  "amount": 200.00,
+  "description": "Added via UPI"
+}
+
+Success Response (200):
+{
+  "success": true,
+  "message": "Money added to wallet successfully"
+}
+
+
+================================================================================
+SECTION 17 — NOTIFICATIONS  (JWT Required)
+================================================================================
+
+---
+17.1  SAVE / UPDATE FCM TOKEN
+---
+POST https://api.anushatechnologies.com/api/save-token
+
+Call this on every app launch and after Firebase gives a new FCM token.
+
+Postman example:
+  Method  : POST
+  URL     : https://api.anushatechnologies.com/api/save-token
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+    Content-Type: application/json
+  Body (raw JSON):
+{
+  "phone": "+919876543210",
+  "fcmToken": "fMEuXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+
+Success Response (200):
+{
+  "success": true,
+  "message": "Token saved successfully"
+}
+
+
+---
+17.2  GET NOTIFICATIONS
+---
+GET https://api.anushatechnologies.com/api/notifications
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/notifications
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200): [] (array — currently push-only, no stored inbox)
+
+
+---
+17.3  MARK ALL NOTIFICATIONS AS READ
+---
+PATCH https://api.anushatechnologies.com/api/notifications/read-all
+
+Postman example:
+  Method  : PATCH
+  URL     : https://api.anushatechnologies.com/api/notifications/read-all
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200):
+{
+  "success": true,
+  "message": "Notifications marked as read"
+}
+
+
+---
+17.4  MARK ONE NOTIFICATION AS READ
+---
+PATCH https://api.anushatechnologies.com/api/notifications/{notificationId}/read
+
+Postman example:
+  Method  : PATCH
+  URL     : https://api.anushatechnologies.com/api/notifications/abc123/read
+  Headers :
+    Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Success Response (200):
+{
+  "success": true,
+  "message": "Notification marked as read",
+  "notificationId": "abc123"
+}
+
+
+================================================================================
+SECTION 18 — POLICIES  (Public — No JWT required)
+================================================================================
+
+---
+18.1  GET POLICY
+---
+GET https://api.anushatechnologies.com/api/policies/{type}
+
+type values:
+  privacy-policy       - Privacy Policy content
+  terms-and-conditions - Terms & Conditions
+  refund-policy        - Refund Policy
+  about-us             - About Us
+
+Postman example:
+  Method  : GET
+  URL     : https://api.anushatechnologies.com/api/policies/privacy-policy
+  Headers : (none)
+
+Success Response (200):
+{
+  "success": true,
+  "policy": {
+    "type": "privacy-policy",
+    "content": "Full HTML or markdown content...",
+    "updatedAt": "2024-03-01T00:00:00"
+  }
+}
+
+Error (404): policy type not found
+
+
+================================================================================
+QUICK REFERENCE — ALL CUSTOMER APP ENDPOINTS
+================================================================================
+
+AUTH (No JWT):
+  GET    /api/auth/check-phone/{phone}              Check if phone registered
+  POST   /api/auth/signup                           Register new customer
+  POST   /api/auth/login                            Login existing customer
+  POST   /api/auth/refresh                          Refresh access token
+  POST   /api/auth/logout                           Logout
+
+PROFILE (JWT Required):
+  GET    /api/customer/profile                      Get profile
+  PUT    /api/customer/profile                      Update profile
+
+ADDRESSES (JWT Required) — lat & lng MANDATORY:
+  GET    /api/addresses                             Get all addresses
+  POST   /api/addresses                             Add address
+  PUT    /api/addresses/{id}                        Update address
+  DELETE /api/addresses/{id}                        Delete address
+
+CATEGORIES (Public):
+  GET    /api/categories                            Get all
+  GET    /api/categories/{id}                       Get by ID
+  GET    /api/categories/search?keyword=            Search
+
+SUB-CATEGORIES (Public):
+  GET    /api/subcategories                         Get all
+  GET    /api/subcategories/{categoryId}            Get by category
+  GET    /api/subcategories/detail/{id}             Get by ID
+
+STORES (Public):
+  GET    /api/stores                                Get all (paginated)
+  GET    /api/stores/{id}                           Get by ID
+  GET    /api/stores/suggest?q=                     Autocomplete
+
+PRODUCTS (Public):
+  GET    /api/products                              Get all
+  GET    /api/products/{id}                         Get by ID
+  GET    /api/products/search?keyword=              Search
+  GET    /api/products/suggestions?q=&limit=        Instant suggestions
+  GET    /api/products/search/paginated?q=          Paginated search
+  GET    /api/products/trending                     Trending
+  GET    /api/products/bestseller                   Best sellers
+  GET    /api/products/filter                       Filter
+
+WISHLIST (JWT Required):
+  GET    /api/customer/products/wishlist            Get wishlist
+  POST   /api/customer/products/wishlist            Add product
+  DELETE /api/customer/products/wishlist?productId= Remove product
+  POST   /api/customer/products/wishlist/merge      Merge guest wishlist
+
+RATINGS:
+  POST   /api/customer/products/rating              Add rating (JWT)
+  GET    /api/customer/products/{productId}/ratings Get ratings (Public)
+
+CART (JWT Required):
+  GET    /api/cart                                  Get cart
+  POST   /api/cart/items                            Add item
+  PUT    /api/cart/items/{itemId}?quantity=         Update quantity
+  DELETE /api/cart/items/{itemId}                   Remove item
+  DELETE /api/cart                                  Clear cart
+  POST   /api/cart/merge                            Merge guest cart
+
+COUPONS:
+  GET    /api/coupons/active                        Get active coupons (Public)
+  GET    /api/coupons/apply?code=&customerId=&cartValue= Apply coupon (Public)
+
+ORDERS (JWT Required):
+  POST   /api/orders                                Place order
+  GET    /api/orders                                Get my orders
+  GET    /api/orders/{orderId}                      Get order
+  PATCH  /api/orders/{orderId}/cancel               Cancel order
+  GET    /api/orders/recent-products                Recently ordered products
+
+PAYMENT (JWT Required):
+  POST   /api/payment/initiate                      Start Razorpay checkout
+  POST   /api/payment/verify                        Verify payment signature
+  POST   /api/payment/refund/request                Request Razorpay refund
+  GET    /api/payment/refund-status/{orderId}       Get refund status
+  POST   /api/payment/webhook                       Razorpay webhook (Public)
+
+TRACKING (Public):
+  GET    /api/tracking/{orderNumber}                Live order tracking
+
+BANNERS (Public):
+  GET    /api/customer/banners                      Get active banners
+
+WALLET (JWT Required):
+  GET    /api/wallet/balance/{userMainId}           Get balance
+  GET    /api/wallet/history/{userMainId}           Transaction history
+  POST   /api/wallet/add                            Add money
+
+NOTIFICATIONS (JWT Required):
+  POST   /api/save-token                            Save FCM token
+  GET    /api/notifications                         Get notifications
+  PATCH  /api/notifications/read-all                Mark all as read
+  PATCH  /api/notifications/{id}/read              Mark one as read
+
+POLICIES (Public):
+  GET    /api/policies/{type}                       Get policy content
+
+================================================================================
+IMPORTANT NOTES FOR FRONTEND TEAM
+================================================================================
+
+1. JWT TOKEN USAGE
+   - After login/signup, store both accessToken and refreshToken
+   - accessToken goes in every protected request as:
+       Authorization: Bearer <accessToken>
+   - When you get 401, call POST /api/auth/refresh with refreshToken
+   - On logout, call POST /api/auth/logout to invalidate refreshToken
+
+2. ADDRESS — LATITUDE & LONGITUDE ARE MANDATORY
+   - Every address POST and PUT MUST include latitude and longitude
+   - Obtain these from the device GPS / Google Maps place picker
+   - Without coordinates, delivery routing and rider assignment will fail
+   - Example: "latitude": 17.494718, "longitude": 78.399614
+
+3. PAYMENT FLOW (ONLINE)
+   a) POST /api/orders { paymentMethod: "ONLINE", addressId, couponCode }
+      → receive orderId and orderNumber
+   b) POST /api/payment/initiate { orderId }
+      → receive razorpayOrderId, amount (paise), keyId
+   c) Open Razorpay SDK checkout with these details
+   d) On Razorpay success callback, call:
+      POST /api/payment/verify { razorpayOrderId, razorpayPaymentId,
+                                  razorpaySignature, receipt }
+
+4. CART — USE variantId, NOT productId
+   - Products have variants (e.g. 500g, 1kg, 250ml)
+   - When adding to cart send variantId from product.variants[i].id
+   - Not productId
+
+5. SEARCH FLOW (Zepto-style)
+   - User types → call /api/products/suggestions?q=&limit=10 for instant hints
+   - User presses search → call /api/products/search/paginated?q=&page=0&size=20
+
+6. LIVE TRACKING — FIREBASE RTDB (preferred over REST)
+   - Listen to Firebase RTDB path: tracking/{orderNumber}
+   - This gives real-time location updates without polling
+   - Use GET /api/tracking/{orderNumber} only as a fallback
+
+7. FCM TOKEN
+   - On every app launch: call POST /api/save-token with phone + fcmToken
+   - This ensures push notifications reach the right device
+
+================================================================================
+END OF DOCUMENT
+================================================================================

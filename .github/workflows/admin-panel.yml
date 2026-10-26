@@ -1,0 +1,43 @@
+name: Admin Panel — Build
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'Anushabazaar_Admin_Panel/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Anushabazaar_Admin_Panel/package-lock.json
+
+      - name: Install dependencies
+        working-directory: Anushabazaar_Admin_Panel
+        run: npm ci
+
+      - name: Create .env
+        working-directory: Anushabazaar_Admin_Panel
+        run: |
+          echo "VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}" >> .env
+          echo "VITE_GOOGLE_MAPS_KEY=${{ secrets.VITE_GOOGLE_MAPS_KEY }}" >> .env
+
+      - name: Build
+        working-directory: Anushabazaar_Admin_Panel
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-panel-dist
+          path: Anushabazaar_Admin_Panel/dist/
+          retention-days: 7

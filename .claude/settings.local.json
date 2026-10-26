@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-21\" ANDROID_SDK_ROOT=\"C:/Users/venka/AppData/Local/Android/Sdk\" ANDROID_HOME=\"C:/Users/venka/AppData/Local/Android/Sdk\" ./gradlew.bat bundleRelease --no-daemon)",
+      "Bash(node --print \"require.resolve\\('@react-native/gradle-plugin/package.json', { paths: [require.resolve\\('react-native/package.json'\\)] }\\)\")",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-21\" ANDROID_SDK_ROOT=\"C:/Users/venka/AppData/Local/Android/Sdk\" ANDROID_HOME=\"C:/Users/venka/AppData/Local/Android/Sdk\" ./gradlew.bat bundleRelease --stacktrace --no-daemon)",
+      "Bash(powershell.exe -Command \"New-Item -ItemType Junction -Path 'C:\\\\ap' -Target 'C:\\\\Users\\\\venka\\\\OneDrive\\\\Desktop\\\\fi\\\\Anushadeliverypartnerapp' -ErrorAction Stop\")",
+      "Bash(powershell.exe -Command \"robocopy 'C:\\\\Users\\\\venka\\\\OneDrive\\\\Desktop\\\\fi\\\\Anushadeliverypartnerapp\\\\node_modules' 'C:\\\\ap\\\\node_modules' /E /R:0 /W:0 /NP /NFL /NDL\")",
+      "Read(//c/ap/android/**)",
+      "Bash(powershell.exe -Command ':*)",
+      "Bash(xargs grep:*)",
+      "Read(//c/Users/venka/OneDrive/Desktop/fi//**)",
+      "Bash(cmd /c \"set PATH=C:\\\\Program Files\\\\nodejs;%PATH% && cd /d C:\\\\Users\\\\venka\\\\OneDrive\\\\Desktop\\\\fi\\\\adp93\\\\android && gradlew.bat assembleDebug 2>&1\")",
+      "Bash(npm run *)",
+      "Bash(npm create *)",
+      "Bash(npx --yes create-vite@latest frontend --template react-ts)"
+    ],
+    "additionalDirectories": [
+      "c:\\ap\\android\\app",
+      "c:\\Users\\venka\\OneDrive\\Desktop\\fi",
+      "C:\\Users\\venka\\OneDrive\\Desktop\\fi\\VR-Technologies\\admin\\src"
+    ]
+  }
+}

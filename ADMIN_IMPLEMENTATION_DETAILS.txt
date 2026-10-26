@@ -1,0 +1,83 @@
+================================================================================
+ADMIN & SUPER ADMIN IMPLEMENTATION DETAILS - ANUSHA BAZAAR
+================================================================================
+
+1. SUPER ADMIN WORKFLOW: ADMIN CREATION & SETUP
+-----------------------------------------------
+* Logic: Super Admin creates a sub-admin account.
+* Data Required: Email (unique), Full Name.
+* Process:
+  1. System generates a random system password.
+  2. Syncs account with Firebase Authentication (ensureFirebaseUserExists).
+  3. Sends "Admin Setup Email" containing the setup link.
+  4. Backend sets 'mustChangePassword = true'.
+  5. Account is assigned 'ROLE_ADMIN'.
+* Key Endpoint: POST /api/super-admin/admin-users
+* Database Fields (User Table):
+  - role: "ROLE_ADMIN" or "ROLE_SUPER_ADMIN"
+  - must_change_password: boolean
+  - created_by_id: bigint (ID of the super admin)
+  - enabled: boolean (for account toggle)
+
+2. ADMIN ACCESS CODE (SECONDARY VERIFICATION)
+----------------------------------------------
+* Logic: Every ROLE_ADMIN (not super admin) must enter a 6-digit code after password login.
+* Process:
+  1. Super Admin sets a 6-digit code for the Admin.
+  2. Code is hashed using BCrypt and stored (admin_access_code_hash).
+  3. Upon login, system generates a challenge token (expires in 10 mins).
+  4. Admin enters 6-digit code -> Backend verifies hash -> Login finalized.
+* Key Endpoint: POST /api/super-admin/admin-users/{id}/access-code
+* Validation: Exact 6 digits (Regex: ^\d{6}$)
+
+3. TIME-LIMITED ACCESS
+----------------------
+* Logic: Restrict how long an admin can access the panel from the moment of setup.
+* Inputs: Days, Hours, Minutes, Seconds.
+* Implementation:
+  - Backend calculates: LocalDateTime.now() + duration.
+  - Stored in: admin_access_expires_at (timestamp).
+  - Validation: Every login/verification checks if current time > expiry.
+* Key Endpoint: PUT /api/super-admin/admin-users/{id}/access-time
+
+4. MODULAR PERMISSIONS
+----------------------
+* Logic: Control visibility and access to specific sidebar modules.
+* Implementation:
+  - Permissions are predefined keys (e.g., "products", "orders", "customers").
+  - Super Admin checks/unchecks modules in UI.
+  - Stored in DB as a comma-separated string or serialized JSON (permission_keys).
+  - Frontend Guard: Checks user.permissions.includes("module_key") before rendering routes.
+* Key Endpoint: PUT /api/super-admin/admin-users/{id}/permissions
+
+5. COUPON & DISCOUNT ENGINE
+---------------------------
+* Data Structure:
+  - code: String (Normalized to UPPERCASE, e.g., "SAVE50").
+  - discountType: Enum (FIXED_AMOUNT, PERCENTAGE).
+  - discountValue: Decimal.
+  - minCartValue: Decimal.
+  - maxDiscountAmount: Decimal (Capping for percentage coupons).
+  - usageLimit: Integer (Total times coupon can be used globally).
+  - usageLimitPerUser: Integer (Max times one customer can use it).
+  - firstTimeUserOnly: Boolean (Checks if user has previous successful orders).
+  - startDate / expiryDate: Timestamps (Asia/Kolkata timezone).
+* Logic:
+  - Validation: Check if active, check dates, check min order, check limits.
+  - Calculation: Apply fixed or % (apply cap if %) -> Return discount value.
+* Key Endpoint: POST /api/admin/coupons
+
+6. UI / UX IMPLEMENTATION NOTES
+-------------------------------
+* Components used in existing Admin Panel:
+  - LiquidButton: Custom glassmorphism-style buttons.
+  - Dialog/Modals: For Add Admin, Set Permissions, and Set Access Code.
+  - Checkbox Groups: For granular permission management.
+  - Numeric Grid: 4-column grid (Days/Hours/Mins/Secs) for time entry.
+* Authentication UI:
+  - Multi-step login: 1. Email/Password -> 2. 6-Digit Access Code Entry.
+  - Access Code Input: 6 separate boxes or single 6-digit masked field.
+
+================================================================================
+Generated on: 2026-05-06
+================================================================================

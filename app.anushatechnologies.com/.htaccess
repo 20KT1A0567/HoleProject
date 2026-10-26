@@ -1,0 +1,40 @@
+# Anusha Bazaar — direct Play Store redirect for the customer app subdomain.
+#
+# /r/{CODE}   → Play Store with install referrer = referralCode={CODE}
+# /          → Play Store (no referrer)
+# anything   → Play Store (no referrer)
+#
+# Server-side redirect so the user NEVER sees the landing page, even briefly.
+# After install, the app reads the install referrer via the Play Install Referrer
+# Library and pre-fills the signup screen with the code.
+
+DirectoryIndex index.html
+Options -Indexes -MultiViews
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Allow /.well-known/* (e.g. assetlinks.json for Android App Links verification)
+  # and any future Apple-App-Site-Association file to load directly.
+  RewriteRule ^\.well-known/ - [L]
+
+  # /r/ABC123 → Play Store with install referrer
+  RewriteRule ^r/([A-Z0-9]+)/?$  https://play.google.com/store/apps/details?id=com.anusha.deliveryapp&referrer=referralCode%3D$1  [R=302,L,NE]
+
+  # /r/abc123 (lowercase or mixed) — uppercase the code via [NC]
+  RewriteRule ^r/([A-Za-z0-9]+)/?$  https://play.google.com/store/apps/details?id=com.anusha.deliveryapp&referrer=referralCode%3D$1  [R=302,L,NE]
+
+  # Everything else (root, unknown paths) → plain Play Store
+  RewriteRule ^.*$  https://play.google.com/store/apps/details?id=com.anusha.deliveryapp  [R=302,L]
+</IfModule>
+
+# Cache rules — only applied if mod_headers is loaded.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "\.(json)$">
+    Header set Cache-Control "public, max-age=300"
+  </FilesMatch>
+</IfModule>

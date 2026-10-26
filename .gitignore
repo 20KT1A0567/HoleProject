@@ -1,0 +1,99 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# Build outputs
+build/
+**/build/
+dist/
+**/dist/
+target/
+**/target/
+out/
+**/out/
+.next/
+**/.next/
+.nuxt/
+**/.nuxt/
+.output/
+**/.output/
+
+# Android & Gradle
+.gradle/
+**/.gradle/
+.gradle-local/
+**/.gradle-local/
+.gradle-user/
+**/.gradle-user/
+**/android/app/build/
+**/android/.gradle/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.jar
+*.war
+*.ear
+*.aar
+
+# React Native / Expo
+.expo/
+**/.expo/
+.expo-shared/
+**/.expo-shared/
+**/ios/Pods/
+**/ios/build/
+
+# C++ / Native compilation
+**/.cxx/
+**/intermediates/
+*.obj
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Logs and temp files
+*.log
+logs/
+**/logs/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.patch
+tsc_*.txt
+tsc_*.log
+build_output*.txt
+paths_output.txt
+
+# Secrets & Environment
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.pem
+*.p12
+*.key
+local.properties
+key.properties
+google-services.json
+GoogleService-Info.plist
+
+# Cache directories
+gcache/
+g/
+.cache/
+**/.cache/
+.turbo/
+**/.turbo/
+
+# OS / Editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

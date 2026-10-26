@@ -1,0 +1,71 @@
+name: Backend — Build & Deploy
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'Backend_Original/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      # ── Database (AWS RDS) ──────────────────────────────────────────
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+      # ── AWS S3 ─────────────────────────────────────────────────────
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+
+      # ── Firebase (base64 of service account JSON) ──────────────────
+      FIREBASE_CONFIG_BASE64: ${{ secrets.FIREBASE_CONFIG_BASE64 }}
+
+      # ── JWT ────────────────────────────────────────────────────────
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
+      # ── Razorpay ───────────────────────────────────────────────────
+      RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+      RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+      RAZORPAY_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_WEBHOOK_SECRET }}
+
+      # ── WhatsApp (Meta) ────────────────────────────────────────────
+      WHATSAPP_API_TOKEN: ${{ secrets.WHATSAPP_API_TOKEN }}
+      WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+
+      # ── CORS ───────────────────────────────────────────────────────
+      CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('Backend_Original/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Build JAR (skip tests)
+        working-directory: Backend_Original
+        run: ./mvnw clean package -DskipTests
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: Backend_Original/target/*.jar
+          retention-days: 7
